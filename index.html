@@ -44,6 +44,15 @@
         padding: 24px 16px 48px;
       }
 
+      .site-footer {
+        margin-top: 28px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.9rem;
+        text-align: center;
+      }
+
       .topbar {
         background: #ffffff;
         border: 1px solid var(--border);
@@ -509,6 +518,7 @@
           </div>
         </section>
       </main>
+      <footer class="site-footer">this website for only study.</footer>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
@@ -650,6 +660,11 @@
         title: doc.filename.replace(/\.[^/.]+$/, '')
       })));
 
+      const INDEX_DB_NAME = 'practical-pdf-library-index';
+      const INDEX_DB_VERSION = 2;
+      const INDEX_VERSION = 1;
+      const MANIFEST_SIGNATURE = allDocs.map((doc) => `${doc.url}|${doc.filename}|${doc.practicalName}`).join('|');
+
       const state = {
         currentView: 'home',
         currentPracticalId: null,
@@ -658,7 +673,12 @@
         pdfSearchToken: 0,
         pdfTextCache: new Map(),
         zipInProgress: false,
-        zipCurrentPracticalId: null
+        zipCurrentPracticalId: null,
+        pdfIndexLoading: false,
+        pdfIndexReady: false,
+        pdfIndexRecords: new Map(),
+        pdfIndexToken: 0,
+        textSearchTimer: null
       };
 
       const elements = {
@@ -692,6 +712,14 @@
           .replace(/>/g, '&gt;')
           .replace(/\"/g, '&quot;')
           .replace(/'/g, '&#039;');
+      }
+
+      function escapeRegex(value) {
+        return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      function normalizeText(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
       }
 
       function showView(name) {
@@ -813,9 +841,8 @@
       }
 
       function handleDocDownload(docUrl, fileName) {
-        const link = `${docUrl}`;
         try {
-          downloadFile(link, fileName);
+          downloadFile(docUrl, fileName);
         } catch (error) {
           showStatus('Unable to download the PDF. Please try again.', 'error');
         }
@@ -897,113 +924,371 @@
         }
       }
 
-      function buildPdfSnippet(text, query) {
-        const normalizedText = text.replace(/\s+/g, ' ');
-        const lower = normalizedText.toLowerCase();
-        const index = lower.indexOf(query.toLowerCase());
-        if (index === -1) {
-          return 'No matching snippet was found in the extracted text.';
-        }
-        const start = Math.max(0, index - 80);
-        const end = Math.min(normalizedText.length, index + query.length + 80);
-        const snippet = normalizedText.slice(start, end).trim();
-        return snippet ? `...${snippet}...` : 'Matching text found.';
+      function openPdfDatabase() {
+        return new Promise((resolve, reject) => {
+          if (!window.indexedDB) {
+            reject(new Error('IndexedDB is not available in this browser.'));
+            return;
+          }
+
+          const request = window.indexedDB.open(INDEX_DB_NAME, INDEX_DB_VERSION);
+          request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('documents')) {
+              db.createObjectStore('documents', { keyPath: 'url' });
+            }
+            if (!db.objectStoreNames.contains('meta')) {
+              db.createObjectStore('meta', { keyPath: 'key' });
+            }
+
+            if (db.objectStoreNames.contains('documents') && db.objectStoreNames.contains('meta')) {
+              // Ensure the schema is fully present for older partial database states.
+            }
+          };
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error || new Error('Unable to open PDF index database.'));
+        });
       }
 
-      async function extractTextForPdf(doc, token) {
-        if (state.pdfTextCache.has(doc.url)) {
-          return state.pdfTextCache.get(doc.url);
-        }
+      function readMetaRecord(db) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('meta', 'readonly');
+          const request = tx.objectStore('meta').get('settings');
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error || new Error('Failed to read PDF index metadata.'));
+        });
+      }
 
+      function writeMetaRecord(db, payload) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('meta', 'readwrite');
+          const request = tx.objectStore('meta').put({ key: 'settings', ...payload });
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error || new Error('Failed to save PDF index metadata.'));
+        });
+      }
+
+      function readAllIndexedRecords(db) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('documents', 'readonly');
+          const request = tx.objectStore('documents').getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error || new Error('Failed to read the cached PDF records.'));
+        });
+      }
+
+      function writeAllIndexedRecords(db, records) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('documents', 'readwrite');
+          const store = tx.objectStore('documents');
+          let completed = 0;
+          records.forEach((record) => {
+            const request = store.put(record);
+            request.onsuccess = () => {
+              completed += 1;
+              if (completed === records.length) {
+                resolve();
+              }
+            };
+            request.onerror = () => reject(request.error || new Error('Failed to write a cached PDF record.'));
+          });
+          if (!records.length) {
+            resolve();
+          }
+        });
+      }
+
+      function clearIndexStore(db) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('documents', 'readwrite');
+          const request = tx.objectStore('documents').clear();
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error || new Error('Unable to reset the PDF text index.'));
+        });
+      }
+
+      function extractPageTextFromPdf(page) {
+        return page.getTextContent().then((textContent) => {
+          const items = Array.isArray(textContent && textContent.items) ? textContent.items : [];
+          return items.map((item) => item && item.str ? item.str : '').join(' ').replace(/\s+/g, ' ').trim();
+        });
+      }
+
+      async function extractPdfDocumentText(doc, token) {
         if (typeof window.pdfjsLib === 'undefined') {
           throw new Error('PDF.js is not available.');
         }
 
         const pdf = await window.pdfjsLib.getDocument(doc.url).promise;
-        let contentText = '';
+        const pages = [];
+        let combinedText = '';
 
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-          if (token !== state.pdfSearchToken) {
+          if (token !== state.pdfIndexToken) {
             return null;
           }
+
           const page = await pdf.getPage(pageNumber);
-          const pageText = await page.getTextContent();
-          const strings = pageText.items.map((item) => item.str || '');
-          contentText += ` ${strings.join(' ')}`;
+          const pageText = await extractPageTextFromPdf(page);
+          if (pageText) {
+            const text = pageText.replace(/\s+/g, ' ').trim();
+            pages.push({ pageNumber, text });
+            combinedText += `${combinedText ? ' ' : ''}${text}`;
+          }
         }
 
-        const finalText = contentText.trim();
-        state.pdfTextCache.set(doc.url, finalText);
-        return finalText;
+        return {
+          url: doc.url,
+          filename: doc.filename,
+          practicalName: doc.practicalName,
+          text: combinedText,
+          pages,
+          indexedAt: Date.now()
+        };
+      }
+
+      async function ensurePdfIndexReady() {
+        if (state.pdfIndexLoading) {
+          return state.pdfIndexLoadingPromise;
+        }
+
+        state.pdfIndexLoading = true;
+        state.pdfIndexReady = false;
+        state.pdfIndexLoadingPromise = (async () => {
+          const token = ++state.pdfIndexToken;
+          let db;
+
+          try {
+            db = await openPdfDatabase();
+            const meta = await readMetaRecord(db);
+            const cached = await readAllIndexedRecords(db);
+
+            if (meta && meta.version === INDEX_VERSION && meta.manifestSignature === MANIFEST_SIGNATURE && cached.length > 0) {
+              state.pdfIndexRecords = new Map(cached.map((record) => [record.url, record]));
+              state.pdfIndexReady = true;
+              state.pdfIndexLoading = false;
+              return cached;
+            }
+
+            if (meta && meta.version === INDEX_VERSION && meta.manifestSignature === MANIFEST_SIGNATURE && cached.length === 0) {
+              showStatus('Cached index is empty. Rebuilding PDF text index...', '');
+            }
+
+            const records = [];
+            const batchSize = 5;
+
+            for (let start = 0; start < allDocs.length; start += batchSize) {
+              if (token !== state.pdfIndexToken) {
+                return [];
+              }
+
+              const batch = allDocs.slice(start, start + batchSize);
+              const batchResults = await Promise.all(batch.map(async (doc) => {
+                try {
+                  return await extractPdfDocumentText(doc, token);
+                } catch (error) {
+                  console.warn(`Unable to extract text from ${doc.filename}:`, error);
+                  return null;
+                }
+              }));
+
+              batchResults.forEach((record) => {
+                if (record && record.text) {
+                  records.push(record);
+                }
+              });
+
+              const completedCount = Math.min(start + batch.length, allDocs.length);
+              showStatus(`Indexing ${completedCount}/${allDocs.length} PDFs...`, '');
+            }
+
+            if (token !== state.pdfIndexToken) {
+              return [];
+            }
+
+            await clearIndexStore(db);
+            await writeAllIndexedRecords(db, records);
+            await writeMetaRecord(db, {
+              version: INDEX_VERSION,
+              manifestSignature: MANIFEST_SIGNATURE,
+              indexedAt: Date.now(),
+              total: records.length
+            });
+
+            state.pdfIndexRecords = new Map(records.map((record) => [record.url, record]));
+            state.pdfIndexReady = true;
+            showStatus(`Indexed ${records.length}/${allDocs.length} PDFs successfully.`, 'success');
+            return records;
+          } catch (error) {
+            console.error('PDF index build failed:', error);
+            showStatus('PDF indexing could not complete. Search will continue with available cached data.', 'error');
+            state.pdfIndexReady = false;
+            return [];
+          } finally {
+            state.pdfIndexLoading = false;
+            delete state.pdfIndexLoadingPromise;
+            if (db) {
+              db.close();
+            }
+          }
+        })();
+
+        return state.pdfIndexLoadingPromise;
+      }
+
+      function buildSnippetText(text, query) {
+        const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
+        if (!cleaned) {
+          return 'No matching text was found on this page.';
+        }
+
+        const queryTerms = normalizeText(query).split(/\s+/).filter(Boolean);
+        if (!queryTerms.length) {
+          return cleaned.slice(0, 200);
+        }
+
+        const lower = cleaned.toLowerCase();
+        let bestIndex = -1;
+        for (const term of queryTerms) {
+          const idx = lower.indexOf(term);
+          if (idx !== -1 && (bestIndex === -1 || idx < bestIndex)) {
+            bestIndex = idx;
+          }
+        }
+
+        if (bestIndex === -1) {
+          return cleaned.slice(0, 200);
+        }
+
+        const start = Math.max(0, bestIndex - 90);
+        const end = Math.min(cleaned.length, start + 220);
+        const snippet = cleaned.slice(start, end).trim();
+        const safeSnippet = escapeHtml(snippet);
+        let highlighted = safeSnippet;
+        queryTerms.forEach((term) => {
+          const regex = new RegExp(escapeRegex(term), 'gi');
+          highlighted = highlighted.replace(regex, (match) => `<mark>${match}</mark>`);
+        });
+        return highlighted;
+      }
+
+      function searchCachedPdfIndex(query) {
+        const normalizedQuery = normalizeText(query);
+        const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+        if (!normalizedQuery || terms.length === 0) {
+          return [];
+        }
+
+        const matches = [];
+
+        for (const record of state.pdfIndexRecords.values()) {
+          if (!record || !Array.isArray(record.pages)) {
+            continue;
+          }
+
+          let bestMatch = null;
+          for (const page of record.pages) {
+            const pageText = normalizeText(page.text || '');
+            if (!pageText) {
+              continue;
+            }
+
+            const phraseMatch = normalizedQuery.includes(' ') ? pageText.includes(normalizedQuery) : false;
+            const allTermsMatch = terms.every((term) => pageText.includes(term));
+            const anyTermMatch = terms.some((term) => pageText.includes(term));
+
+            if (!phraseMatch && !allTermsMatch && !anyTermMatch) {
+              continue;
+            }
+
+            const score = (phraseMatch ? 4 : 0) + (allTermsMatch ? 3 : 0) + (terms.length === 1 ? pageText.split(terms[0]).length - 1 : 0);
+            const snippet = buildSnippetText(page.text, normalizedQuery);
+
+            if (!bestMatch || score > bestMatch.score) {
+              bestMatch = {
+                score,
+                pageNumber: page.pageNumber,
+                snippet
+              };
+            }
+          }
+
+          if (bestMatch) {
+            matches.push({
+              filename: record.filename,
+              practicalName: record.practicalName,
+              url: record.url,
+              pageNumber: bestMatch.pageNumber,
+              snippet: bestMatch.snippet,
+              score: bestMatch.score
+            });
+          }
+        }
+
+        matches.sort((a, b) => b.score - a.score);
+        return matches;
+      }
+
+      function renderPdfTextSearchResults(matches) {
+        if (!matches.length) {
+          elements.pdfSearchResults.innerHTML = '<div class="empty-state">No PDF text matches were found. This may mean the text is not selectable or the file is image-only.</div>';
+          return;
+        }
+
+        elements.pdfSearchResults.innerHTML = matches.map((match) => `
+          <article class="result-card">
+            <div>
+              <p class="result-summary">${escapeHtml(match.filename)}</p>
+              <p class="match-snippet">${escapeHtml(match.practicalName)} • Page ${match.pageNumber} • ${match.snippet}</p>
+            </div>
+            <div class="result-actions">
+              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(match.url)}">View</button>
+              <button class="secondary-btn" type="button" data-action="download-doc" data-doc-url="${escapeHtml(match.url)}" data-doc-name="${escapeHtml(match.filename)}">Download</button>
+            </div>
+          </article>
+        `).join('');
       }
 
       async function performPdfTextSearch(query) {
-        if (!query || query.trim().length < 2) {
+        const searchQuery = query.trim();
+        if (!searchQuery || searchQuery.length < 2) {
           elements.pdfSearchResults.innerHTML = '';
           showStatus('Enter at least 2 characters to search within PDFs.', '');
           return;
         }
 
-        const searchQuery = query.trim();
-        const token = ++state.pdfSearchToken;
-
-        if (typeof window.pdfjsLib === 'undefined') {
-          elements.pdfSearchResults.innerHTML = '<div class="empty-state">PDF text search requires the PDF.js CDN script to load successfully.</div>';
-          showStatus('PDF.js could not be loaded. This feature depends on a working network connection.', 'error');
-          return;
-        }
-
-        showStatus(`Indexing ${allDocs.length} PDF files...`, '');
-        const matches = [];
-
-        for (let index = 0; index < allDocs.length; index += 1) {
-          if (token !== state.pdfSearchToken) {
+        const currentToken = ++state.pdfSearchToken;
+        try {
+          showStatus('Preparing cached PDF text search...', '');
+          await ensurePdfIndexReady();
+          if (currentToken !== state.pdfSearchToken) {
             return;
           }
 
-          const doc = allDocs[index];
-          try {
-            const extractedText = await extractTextForPdf(doc, token);
-            if (extractedText === null) {
-              return;
-            }
-
-            if (extractedText && extractedText.toLowerCase().includes(searchQuery.toLowerCase())) {
-              matches.push({
-                doc,
-                snippet: buildPdfSnippet(extractedText, searchQuery)
-              });
-            }
-
-            showStatus(`Searching PDF text: ${index + 1} / ${allDocs.length}`, '');
-          } catch (error) {
-            console.warn(`Unable to index ${doc.filename}:`, error);
+          if (!state.pdfIndexReady || state.pdfIndexRecords.size === 0) {
+            elements.pdfSearchResults.innerHTML = '<div class="empty-state">The PDF text index is not ready yet. Please try again shortly.</div>';
+            showStatus('The PDF text index is still being prepared.', '');
+            return;
           }
-        }
 
-        if (token !== state.pdfSearchToken) {
-          return;
-        }
+          const matches = searchCachedPdfIndex(searchQuery);
+          if (currentToken !== state.pdfSearchToken) {
+            return;
+          }
 
-        if (!matches.length) {
-          elements.pdfSearchResults.innerHTML = '<div class="empty-state">No PDF text matches were found. This may mean the text is not selectable or the file is image-only.</div>';
-          showStatus('No PDF text matches found. Scanned or image-only PDFs may need OCR before they can be searched.', '');
-          return;
-        }
+          if (!matches.length) {
+            elements.pdfSearchResults.innerHTML = '<div class="empty-state">No PDF text matches were found. This may mean the text is not selectable or the file is image-only.</div>';
+            showStatus('No PDF text matches found. Scanned or image-only PDFs may need OCR before they can be searched.', '');
+            return;
+          }
 
-        elements.pdfSearchResults.innerHTML = matches.map(({ doc, snippet }) => `
-          <article class="result-card">
-            <div>
-              <p class="result-summary">${escapeHtml(doc.filename)}</p>
-              <p class="match-snippet">${escapeHtml(doc.practicalName)} • ${escapeHtml(snippet)}</p>
-            </div>
-            <div class="result-actions">
-              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(doc.url)}">View</button>
-              <button class="secondary-btn" type="button" data-action="download-doc" data-doc-url="${escapeHtml(doc.url)}" data-doc-name="${escapeHtml(doc.filename)}">Download</button>
-            </div>
-          </article>
-        `).join('');
-        showStatus(`Found ${matches.length} matching PDF document${matches.length === 1 ? '' : 's'}.`, 'success');
+          renderPdfTextSearchResults(matches);
+          showStatus(`Found ${matches.length} matching PDF document${matches.length === 1 ? '' : 's'}.`, 'success');
+        } catch (error) {
+          console.error('PDF search error:', error);
+          elements.pdfSearchResults.innerHTML = '<div class="empty-state">Unable to search the cached PDF text index. Please try again.</div>';
+          showStatus('PDF text search failed. Please try again.', 'error');
+        }
       }
 
       function attachEventHandlers() {
@@ -1059,22 +1344,25 @@
           elements.pdfSearchResults.innerHTML = '';
           showStatus('', '');
           state.pdfSearchToken += 1;
+          clearTimeout(state.textSearchTimer);
         });
 
-        let textSearchTimer = null;
         elements.pdfTextSearch.addEventListener('input', (event) => {
           const query = event.target.value;
-          clearTimeout(textSearchTimer);
-          if (!query.trim()) {
+          const trimmed = query.trim();
+
+          clearTimeout(state.textSearchTimer);
+          state.pdfSearchToken += 1;
+
+          if (!trimmed) {
             elements.pdfSearchResults.innerHTML = '';
             showStatus('', '');
-            state.pdfSearchToken += 1;
             return;
           }
 
-          textSearchTimer = setTimeout(() => {
-            performPdfTextSearch(query);
-          }, 550);
+          state.textSearchTimer = setTimeout(() => {
+            performPdfTextSearch(trimmed);
+          }, 250);
         });
 
         elements.practicalFilter.addEventListener('input', (event) => {
@@ -1121,7 +1409,10 @@
         renderHome();
         showView('home');
         attachEventHandlers();
-        showStatus('Use the filename search at the top or the PDF text search below to find documents faster.', '');
+        showStatus('Loading the PDF text index...', '');
+        ensurePdfIndexReady().catch(() => {
+          showStatus('The PDF text index could not be loaded. Fallback search remains available.', 'error');
+        });
       });
     </script>
   </body>
