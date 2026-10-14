@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Practical PDF Library</title>
+    <style>
+      :root {
+        --bg: #f7f8fa;
+        --panel: #ffffff;
+        --panel-alt: #f4f6fb;
+        --border: #dfe4ec;
+        --text: #1f2937;
+        --muted: #5e6472;
+        --primary: #1f5fcb;
+        --primary-dark: #184ca9;
+        --danger: #c43d3d;
+        --success: #1e8e53;
+        --shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #ffffff;
+        color: var(--text);
+      }
+
+      body {
+        min-height: 100vh;
+      }
+
+      button, input {
+        font: inherit;
+      }
+
+      .app-shell {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+
+      .topbar {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px 20px;
+        box-shadow: var(--shadow);
+        position: sticky;
+        top: 12px;
+        z-index: 10;
+      }
+
+      .brand-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 14px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 2.2vw, 2.7rem);
+        line-height: 1.2;
+      }
+
+      .search-wrap {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .search-input {
+        flex: 1;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        min-height: 48px;
+        padding: 0 16px;
+        background: #fff;
+        color: var(--text);
+      }
+
+      .search-input:focus,
+      .filter-input:focus,
+      .inline-search input:focus,
+      button:focus,
+      .folder-main:focus-visible {
+        outline: 3px solid rgba(31, 95, 203, 0.18);
+        outline-offset: 2px;
+      }
+
+      button {
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        transition: 0.2s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      .primary-btn {
+        background: var(--primary);
+        color: white;
+        min-height: 40px;
+        padding: 0 16px;
+      }
+
+      .primary-btn:hover {
+        background: var(--primary-dark);
+      }
+
+      .secondary-btn {
+        background: #eef3ff;
+        border-color: var(--border);
+        color: var(--text);
+        min-height: 40px;
+        padding: 0 16px;
+      }
+
+      .ghost-btn {
+        background: transparent;
+        color: var(--muted);
+        border-color: var(--border);
+        min-height: 40px;
+        padding: 0 12px;
+      }
+
+      .container {
+        margin-top: 24px;
+      }
+
+      .view {
+        display: none;
+      }
+
+      .view.active {
+        display: block;
+      }
+
+      .page-head,
+      .view-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .eyebrow {
+        margin: 0 0 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+
+      h2 {
+        margin: 0;
+        font-size: clamp(1.5rem, 2vw, 2.1rem);
+      }
+
+      .stat-box {
+        min-width: 140px;
+        background: var(--panel-alt);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .stat-box strong {
+        font-size: 1.35rem;
+      }
+
+      .stat-box span {
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .search-panel,
+      .folder-card,
+      .doc-row,
+      .result-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+      }
+
+      .search-panel {
+        padding: 18px;
+        margin-bottom: 24px;
+      }
+
+      .search-panel-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .search-panel-header h3 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .inline-search {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .inline-search input,
+      .filter-input {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        min-height: 46px;
+        padding: 0 14px;
+      }
+
+      .status {
+        min-height: 24px;
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      .status.success {
+        color: var(--success);
+      }
+
+      .folder-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+
+      .folder-card {
+        padding: 18px;
+      }
+
+      .folder-main {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        border: none;
+        background: transparent;
+        padding: 0;
+        text-align: left;
+      }
+
+      .folder-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-size: 1.7rem;
+        background: #eaf0ff;
+        color: var(--primary);
+      }
+
+      .folder-main h3 {
+        margin: 0 0 4px;
+        font-size: 1.1rem;
+      }
+
+      .folder-main p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .folder-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .folder-actions > * {
+        flex: 1;
+      }
+
+      .document-list,
+      .result-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .doc-row,
+      .result-card {
+        padding: 14px 16px;
+      }
+
+      .doc-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .doc-title {
+        margin: 0;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+      }
+
+      .doc-meta {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .doc-actions,
+      .result-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .result-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .result-summary {
+        margin: 0 0 6px;
+        font-weight: 700;
+      }
+
+      .match-snippet {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .empty-state {
+        background: var(--panel-alt);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px;
+        color: var(--muted);
+      }
+
+      .viewer-shell {
+        width: 100%;
+        min-height: 70vh;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: #f2f4f8;
+        overflow: hidden;
+      }
+
+      iframe {
+        width: 100%;
+        height: 70vh;
+        border: none;
+        background: #fff;
+      }
+
+      .viewer-topbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      @media (max-width: 768px) {
+        .brand-row,
+        .page-head,
+        .view-header,
+        .search-panel-header,
+        .doc-row,
+        .result-card {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .search-wrap,
+        .inline-search,
+        .folder-actions,
+        .doc-actions,
+        .result-actions {
+          flex-direction: column;
+        }
+
+        .folder-actions > *,
+        .doc-actions > *,
+        .result-actions > * {
+          width: 100%;
+        }
+
+        .app-shell {
+          padding-left: 12px;
+          padding-right: 12px;
+        }
+
+        .viewer-shell,
+        iframe {
+          min-height: 58vh;
+          height: 58vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-row">
+          <h1>Practical PDF Library</h1>
+        </div>
+        <div class="search-wrap" aria-label="Global search">
+          <label class="sr-only" for="globalSearch">Search all practical PDFs</label>
+          <input id="globalSearch" class="search-input" type="search" placeholder="Search filenames across all practicals..." />
+          <button id="clearGlobalSearch" class="ghost-btn" type="button">Clear</button>
+        </div>
+      </header>
+
+      <main class="container">
+        <section id="homeView" class="view active" aria-live="polite">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Public library</p>
+              <h2>Browse practical folders</h2>
+            </div>
+            <div class="stat-box">
+              <strong id="totalDocCount">0</strong>
+              <span>documents</span>
+            </div>
+          </div>
+
+          <div class="search-panel">
+            <div class="search-panel-header">
+              <h3>PDF text search</h3>
+              <span class="muted">Selectable text only • may require OCR for scanned files</span>
+            </div>
+            <div class="inline-search">
+              <input id="pdfTextSearch" type="search" placeholder="Search words inside PDF documents..." />
+              <button id="clearPdfTextSearch" class="ghost-btn" type="button">Reset</button>
+            </div>
+            <div id="pdfSearchStatus" class="status"></div>
+            <div id="pdfSearchResults" class="result-list"></div>
+          </div>
+
+          <div id="globalSearchResults" class="result-list"></div>
+          <div id="folderGrid" class="folder-grid"></div>
+        </section>
+
+        <section id="practicalView" class="view" aria-live="polite">
+          <div class="view-header">
+            <button id="backToHome" class="secondary-btn" type="button">Back to Home</button>
+            <h2 id="practicalTitle">Practical</h2>
+          </div>
+          <div class="search-panel" style="margin-top: 4px; margin-bottom: 18px;">
+            <label class="sr-only" for="practicalFilter">Filter PDF list</label>
+            <input id="practicalFilter" class="filter-input" type="search" placeholder="Filter PDFs within this practical..." />
+          </div>
+          <div id="practicalList" class="document-list"></div>
+        </section>
+
+        <section id="viewerView" class="view">
+          <div class="viewer-topbar">
+            <button id="viewerBack" class="secondary-btn" type="button">Back to Practical</button>
+            <button id="openInNewTab" class="secondary-btn" type="button">Open in New Tab</button>
+            <button id="downloadCurrentPdf" class="primary-btn" type="button">Download PDF</button>
+          </div>
+          <div class="viewer-meta">
+            <h2 id="viewerTitle">PDF Viewer</h2>
+          </div>
+          <div id="viewerError" class="status error" role="alert" style="display:none;"></div>
+          <div class="viewer-shell">
+            <iframe id="pdfFrame" title="PDF Viewer" allowfullscreen></iframe>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+    <script>
+      const practicals = [
+        {
+          id: 'ai-ml',
+          name: 'AI-ML',
+          docs: [
+            { filename: 'AI Module 2 Practical No.2-7.pdf', url: 'AI-ML/AI Module 2 Practical No.2-7.pdf' },
+            { filename: 'AI Module2 Practical No.1.pdf', url: 'AI-ML/AI Module2 Practical No.1.pdf' },
+            { filename: 'AI Practical No.3 07_08_2026.pdf', url: 'AI-ML/AI Practical No.3 07_08_2026.pdf' },
+            { filename: 'AI Practical No.5.pdf', url: 'AI-ML/AI Practical No.5.pdf' },
+            { filename: 'jira 1.pdf', url: 'AI-ML/jira 1.pdf' },
+            { filename: 'jira 2.pdf', url: 'AI-ML/jira 2.pdf' },
+            { filename: 'jira 3.pdf', url: 'AI-ML/jira 3.pdf' },
+            { filename: 'jira 4.pdf', url: 'AI-ML/jira 4.pdf' },
+            { filename: 'Jira Practical 8.PDF', url: 'AI-ML/Jira Practical 8.PDF' },
+            { filename: 'Jira Practical 9-12.pdf', url: 'AI-ML/Jira Practical 9-12.pdf' },
+            { filename: 'Practical 3.pdf', url: 'AI-ML/Practical 3.pdf' },
+            { filename: 'Practical 5.pdf', url: 'AI-ML/Practical 5.pdf' },
+            { filename: 'practical 7.pdf', url: 'AI-ML/practical 7.pdf' },
+            { filename: 'Practical 8.pdf', url: 'AI-ML/Practical 8.pdf' },
+            { filename: 'Practical No 1 (1).pdf', url: 'AI-ML/Practical No 1 (1).pdf' }
+          ]
+        },
+        {
+          id: 'android',
+          name: 'Android',
+          docs: [
+            { filename: 'DOC-20260803-WA0029..pdf', url: 'Android/DOC-20260803-WA0029..pdf' },
+            { filename: 'DOC-20260810-WA0025.pdf', url: 'Android/DOC-20260810-WA0025.pdf' },
+            { filename: 'DOC-20260810-WA0027.pdf', url: 'Android/DOC-20260810-WA0027.pdf' },
+            { filename: 'DOC-20260831-WA0044.pdf', url: 'Android/DOC-20260831-WA0044.pdf' },
+            { filename: 'DOC-20261014-WA0000.pdf', url: 'Android/DOC-20261014-WA0000.pdf' },
+            { filename: 'DOC-20261014-WA0001.pdf', url: 'Android/DOC-20261014-WA0001.pdf' },
+            { filename: 'DOC-20261014-WA0002.pdf', url: 'Android/DOC-20261014-WA0002.pdf' },
+            { filename: 'DOC-20261014-WA0003.pdf', url: 'Android/DOC-20261014-WA0003.pdf' },
+            { filename: 'DOC-20261014-WA0004.pdf', url: 'Android/DOC-20261014-WA0004.pdf' },
+            { filename: 'DOC-20261014-WA0005.pdf', url: 'Android/DOC-20261014-WA0005.pdf' },
+            { filename: 'DOC-20261014-WA0006.pdf', url: 'Android/DOC-20261014-WA0006.pdf' },
+            { filename: 'DOC-20261014-WA0007.pdf', url: 'Android/DOC-20261014-WA0007.pdf' },
+            { filename: 'DOC-20261014-WA0008.pdf', url: 'Android/DOC-20261014-WA0008.pdf' },
+            { filename: 'DOC-20261014-WA0009.pdf', url: 'Android/DOC-20261014-WA0009.pdf' },
+            { filename: 'DOC-20261014-WA0010.pdf', url: 'Android/DOC-20261014-WA0010.pdf' },
+            { filename: 'DOC-20261014-WA0011.pdf', url: 'Android/DOC-20261014-WA0011.pdf' },
+            { filename: 'DOC-20261014-WA0012.pdf', url: 'Android/DOC-20261014-WA0012.pdf' },
+            { filename: 'DOC-20261014-WA0013.pdf', url: 'Android/DOC-20261014-WA0013.pdf' },
+            { filename: 'DOC-20261014-WA0014.pdf', url: 'Android/DOC-20261014-WA0014.pdf' },
+            { filename: 'DOC-20261014-WA0015.pdf', url: 'Android/DOC-20261014-WA0015.pdf' },
+            { filename: 'DOC-20261014-WA0016.pdf', url: 'Android/DOC-20261014-WA0016.pdf' },
+            { filename: 'DOC-20261014-WA0017.pdf', url: 'Android/DOC-20261014-WA0017.pdf' }
+          ]
+        },
+        {
+          id: 'applied',
+          name: 'Applied',
+          docs: [
+            { filename: 'Practical 1A.pdf', url: 'Applied/Practical 1A.pdf' },
+            { filename: 'Practical 1B.pdf', url: 'Applied/Practical 1B.pdf' },
+            { filename: 'Practical 2.pdf', url: 'Applied/Practical 2.pdf' },
+            { filename: 'Practical no 7.pdf', url: 'Applied/Practical no 7.pdf' },
+            { filename: 'Practical No.3.pdf', url: 'Applied/Practical No.3.pdf' },
+            { filename: 'Practical No.4.pdf', url: 'Applied/Practical No.4.pdf' },
+            { filename: 'Practical No.6B (1).pdf', url: 'Applied/Practical No.6B (1).pdf' },
+            { filename: 'Practical No.9.pdf', url: 'Applied/Practical No.9.pdf' }
+          ]
+        },
+        {
+          id: 'data-visualization',
+          name: 'Data Visualization',
+          docs: [
+            { filename: 'Data pp (1).pdf', url: 'Data Visualization/Data pp (1).pdf' },
+            { filename: 'Data Visualization Practical 7.pdf', url: 'Data Visualization/Data Visualization Practical 7.pdf' },
+            { filename: 'DataVisualization Practical No.1.pdf', url: 'Data Visualization/DataVisualization Practical No.1.pdf' },
+            { filename: 'DataVisualization Practical No.3.pdf', url: 'Data Visualization/DataVisualization Practical No.3.pdf' },
+            { filename: 'DV Practical 6.pdf', url: 'Data Visualization/DV Practical 6.pdf' },
+            { filename: 'DV Practical No.10.pdf', url: 'Data Visualization/DV Practical No.10.pdf' },
+            { filename: 'DV Practical No.11.pdf', url: 'Data Visualization/DV Practical No.11.pdf' },
+            { filename: 'DV Practical No.8.pdf', url: 'Data Visualization/DV Practical No.8.pdf' },
+            { filename: 'Practical 4 DV.pdf', url: 'Data Visualization/Practical 4 DV.pdf' }
+          ]
+        },
+        {
+          id: 'dot-net',
+          name: 'Dot Net',
+          docs: [
+            { filename: 'practical 1c.pdf', url: 'Dot Net/practical 1c.pdf' },
+            { filename: 'practical no 1.pdf', url: 'Dot Net/practical no 1.pdf' },
+            { filename: 'Practical No.2.pdf', url: 'Dot Net/Practical No.2.pdf' },
+            { filename: 'Practical No.3A.pdf', url: 'Dot Net/Practical No.3A.pdf' },
+            { filename: 'Practical No.3B.pdf', url: 'Dot Net/Practical No.3B.pdf' },
+            { filename: 'Practical No.4A.pdf', url: 'Dot Net/Practical No.4A.pdf' },
+            { filename: 'Practical No.4B.pdf', url: 'Dot Net/Practical No.4B.pdf' },
+            { filename: 'Practical No.4C.pdf', url: 'Dot Net/Practical No.4C.pdf' },
+            { filename: 'Practical No.5A.pdf', url: 'Dot Net/Practical No.5A.pdf' },
+            { filename: 'Practical No.5B.pdf', url: 'Dot Net/Practical No.5B.pdf' },
+            { filename: 'Practical No.6A.pdf', url: 'Dot Net/Practical No.6A.pdf' },
+            { filename: 'Practical No.6B.pdf', url: 'Dot Net/Practical No.6B.pdf' },
+            { filename: 'Practical No.7A.pdf', url: 'Dot Net/Practical No.7A.pdf' },
+            { filename: 'Practical No.7B.pdf', url: 'Dot Net/Practical No.7B.pdf' },
+            { filename: 'Practical No.8A.pdf', url: 'Dot Net/Practical No.8A.pdf' },
+            { filename: 'Practical No.8B.pdf', url: 'Dot Net/Practical No.8B.pdf' },
+            { filename: 'Practical No.9A.pdf', url: 'Dot Net/Practical No.9A.pdf' },
+            { filename: 'Practical No.9B.pdf', url: 'Dot Net/Practical No.9B.pdf' }
+          ]
+        },
+        {
+          id: 'full-stack',
+          name: 'Full Stack',
+          docs: [
+            { filename: 'downloadfile(9).PDF', url: 'Full Stack/downloadfile(9).PDF' },
+            { filename: 'Full Stack Practical No.2 06-08-2026.pdf', url: 'Full Stack/Full Stack Practical No.2 06-08-2026.pdf' },
+            { filename: 'Full Stack Practical No.3(D,E,F).pdf', url: 'Full Stack/Full Stack Practical No.3(D,E,F).pdf' },
+            { filename: 'Full Stack Practical No.4.pdf', url: 'Full Stack/Full Stack Practical No.4.pdf' },
+            { filename: 'full stcak 8 (1).pdf', url: 'Full Stack/full stcak 8 (1).pdf' },
+            { filename: 'full stcak 8.pdf', url: 'Full Stack/full stcak 8.pdf' },
+            { filename: 'FullStack 15-07-2026.pdf', url: 'Full Stack/FullStack 15-07-2026.pdf' },
+            { filename: 'FullStack Practical No.5 (1).pdf', url: 'Full Stack/FullStack Practical No.5 (1).pdf' },
+            { filename: 'FullStack Practical No.6 (1).pdf', url: 'Full Stack/FullStack Practical No.6 (1).pdf' },
+            { filename: 'FullStack Practical No.7.pdf', url: 'Full Stack/FullStack Practical No.7.pdf' }
+          ]
+        },
+        {
+          id: 'iot',
+          name: 'IOT',
+          docs: [
+            { filename: 'IOT Module 1.PDF', url: 'IOT/IOT Module 1.PDF' },
+            { filename: 'IOT Module 2.PDF', url: 'IOT/IOT Module 2.PDF' }
+          ]
+        }
+      ];
+
+      const allDocs = practicals.flatMap((practical) => practical.docs.map((doc) => ({
+        ...doc,
+        practicalId: practical.id,
+        practicalName: practical.name,
+        title: doc.filename.replace(/\.[^/.]+$/, '')
+      })));
+
+      const state = {
+        currentView: 'home',
+        currentPracticalId: null,
+        currentDoc: null,
+        globalQuery: '',
+        pdfSearchToken: 0,
+        pdfTextCache: new Map(),
+        zipInProgress: false,
+        zipCurrentPracticalId: null
+      };
+
+      const elements = {
+        folderGrid: document.getElementById('folderGrid'),
+        totalDocCount: document.getElementById('totalDocCount'),
+        globalSearch: document.getElementById('globalSearch'),
+        clearGlobalSearch: document.getElementById('clearGlobalSearch'),
+        globalSearchResults: document.getElementById('globalSearchResults'),
+        pdfTextSearch: document.getElementById('pdfTextSearch'),
+        clearPdfTextSearch: document.getElementById('clearPdfTextSearch'),
+        pdfSearchStatus: document.getElementById('pdfSearchStatus'),
+        pdfSearchResults: document.getElementById('pdfSearchResults'),
+        practicalView: document.getElementById('practicalView'),
+        practicalTitle: document.getElementById('practicalTitle'),
+        practicalList: document.getElementById('practicalList'),
+        practicalFilter: document.getElementById('practicalFilter'),
+        viewerView: document.getElementById('viewerView'),
+        viewerTitle: document.getElementById('viewerTitle'),
+        pdfFrame: document.getElementById('pdfFrame'),
+        viewerError: document.getElementById('viewerError'),
+        openInNewTab: document.getElementById('openInNewTab'),
+        downloadCurrentPdf: document.getElementById('downloadCurrentPdf'),
+        viewerBack: document.getElementById('viewerBack'),
+        backToHome: document.getElementById('backToHome')
+      };
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function showView(name) {
+        state.currentView = name;
+        document.getElementById('homeView').classList.toggle('active', name === 'home');
+        elements.practicalView.classList.toggle('active', name === 'practical');
+        elements.viewerView.classList.toggle('active', name === 'viewer');
+      }
+
+      function renderHome() {
+        elements.totalDocCount.textContent = String(allDocs.length);
+        elements.folderGrid.innerHTML = practicals.map((practical) => `
+          <article class="folder-card">
+            <button class="folder-main" type="button" data-practical-id="${practical.id}" data-action="open-practical" aria-label="Open ${escapeHtml(practical.name)} practicals">
+              <span class="folder-icon" aria-hidden="true">▣</span>
+              <span class="folder-meta">
+                <h3>${escapeHtml(practical.name)}</h3>
+                <p>${practical.docs.length} PDFs</p>
+              </span>
+            </button>
+            <div class="folder-actions">
+              <button class="primary-btn" type="button" data-practical-id="${practical.id}" data-action="open-practical">View</button>
+              <button class="secondary-btn" type="button" data-practical-id="${practical.id}" data-action="download-practical">Download All</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function renderGlobalSearch(query) {
+        const trimmed = query.trim();
+        if (!trimmed) {
+          elements.globalSearchResults.innerHTML = '';
+          return;
+        }
+
+        const q = trimmed.toLowerCase();
+        const matches = allDocs.filter((doc) => {
+          const text = `${doc.filename} ${doc.practicalName} ${doc.title}`.toLowerCase();
+          return text.includes(q);
+        });
+
+        if (!matches.length) {
+          elements.globalSearchResults.innerHTML = '<div class="empty-state">No matching PDFs found for this filename search.</div>';
+          return;
+        }
+
+        elements.globalSearchResults.innerHTML = matches.map((doc) => `
+          <article class="result-card">
+            <div>
+              <p class="result-summary">${escapeHtml(doc.filename)}</p>
+              <p class="match-snippet">${escapeHtml(doc.practicalName)}</p>
+            </div>
+            <div class="result-actions">
+              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(doc.url)}">View</button>
+              <button class="secondary-btn" type="button" data-action="download-doc" data-doc-url="${escapeHtml(doc.url)}" data-doc-name="${escapeHtml(doc.filename)}">Download</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function renderPractical(practicalId, filterQuery = '') {
+        const practical = practicals.find((item) => item.id === practicalId);
+        if (!practical) {
+          elements.practicalList.innerHTML = '<div class="empty-state">This practical is unavailable.</div>';
+          return;
+        }
+
+        state.currentPracticalId = practicalId;
+        elements.practicalTitle.textContent = practical.name;
+        const q = filterQuery.trim().toLowerCase();
+        const filteredDocs = practical.docs.filter((doc) => doc.filename.toLowerCase().includes(q));
+
+        if (!filteredDocs.length) {
+          elements.practicalList.innerHTML = '<div class="empty-state">No PDFs match this filter in this practical.</div>';
+          return;
+        }
+
+        elements.practicalList.innerHTML = filteredDocs.map((doc) => `
+          <div class="doc-row">
+            <div>
+              <p class="doc-title">${escapeHtml(doc.filename)}</p>
+              <div class="doc-meta">${escapeHtml(practical.name)}</div>
+            </div>
+            <div class="doc-actions">
+              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(doc.url)}">View</button>
+              <button class="secondary-btn" type="button" data-action="download-doc" data-doc-url="${escapeHtml(doc.url)}" data-doc-name="${escapeHtml(doc.filename)}">Download</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function openDocument(docUrl) {
+        const doc = allDocs.find((item) => item.url === docUrl);
+        if (!doc) {
+          showStatus('The selected PDF could not be found.', 'error');
+          return;
+        }
+
+        state.currentDoc = doc;
+        const practicalId = doc.practicalId;
+        state.currentPracticalId = practicalId;
+
+        elements.viewerTitle.textContent = doc.filename;
+        elements.pdfFrame.src = doc.url;
+        elements.pdfFrame.style.display = 'block';
+        elements.viewerError.style.display = 'none';
+        showView('viewer');
+      }
+
+      function downloadFile(url, fileName) {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+
+      function handleDocDownload(docUrl, fileName) {
+        const link = `${docUrl}`;
+        try {
+          downloadFile(link, fileName);
+        } catch (error) {
+          showStatus('Unable to download the PDF. Please try again.', 'error');
+        }
+      }
+
+      function showStatus(message, type = '') {
+        const target = elements.pdfSearchStatus;
+        target.textContent = message;
+        target.className = `status ${type}`.trim();
+      }
+
+      async function fetchBlob(url) {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
+        return response.blob();
+      }
+
+      async function createPracticalZip(practicalId) {
+        if (!window.JSZip) {
+          showStatus('ZIP download requires JSZip. The CDN library did not load.', 'error');
+          return;
+        }
+
+        const practical = practicals.find((item) => item.id === practicalId);
+        if (!practical) {
+          showStatus('No practical found for zip creation.', 'error');
+          return;
+        }
+
+        if (state.zipInProgress) {
+          showStatus('A ZIP download is already being prepared. Please wait.', 'error');
+          return;
+        }
+
+        state.zipInProgress = true;
+        state.zipCurrentPracticalId = practicalId;
+        showStatus(`Preparing ZIP for ${practical.name}...`, 'success');
+
+        const zip = new JSZip();
+        const progressLabel = document.createElement('div');
+        progressLabel.className = 'status';
+        progressLabel.textContent = `0 / ${practical.docs.length} files added`;
+        elements.pdfSearchStatus.innerHTML = '';
+        elements.pdfSearchStatus.appendChild(progressLabel);
+
+        try {
+          for (let index = 0; index < practical.docs.length; index += 1) {
+            const doc = practical.docs[index];
+            try {
+              const blob = await fetchBlob(doc.url);
+              zip.file(doc.filename, blob);
+              progressLabel.textContent = `${index + 1} / ${practical.docs.length} files added`;
+            } catch (error) {
+              progressLabel.textContent = `${index + 1} / ${practical.docs.length} files added • some files were unavailable`;
+            }
+          }
+
+          const content = await zip.generateAsync({ type: 'blob' }, (metadata) => {
+            progressLabel.textContent = `Zipping ${metadata.percent.toFixed(0)}% • ${practical.docs.length} files`;
+          });
+
+          const fileName = `${practical.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '')}.zip`;
+          const objectUrl = URL.createObjectURL(content);
+          const anchor = document.createElement('a');
+          anchor.href = objectUrl;
+          anchor.download = fileName;
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+          showStatus(`ZIP download for ${practical.name} is ready.`, 'success');
+        } catch (error) {
+          showStatus(`ZIP generation failed for ${practical.name}.`, 'error');
+        } finally {
+          state.zipInProgress = false;
+          state.zipCurrentPracticalId = null;
+        }
+      }
+
+      function buildPdfSnippet(text, query) {
+        const normalizedText = text.replace(/\s+/g, ' ');
+        const lower = normalizedText.toLowerCase();
+        const index = lower.indexOf(query.toLowerCase());
+        if (index === -1) {
+          return 'No matching snippet was found in the extracted text.';
+        }
+        const start = Math.max(0, index - 80);
+        const end = Math.min(normalizedText.length, index + query.length + 80);
+        const snippet = normalizedText.slice(start, end).trim();
+        return snippet ? `...${snippet}...` : 'Matching text found.';
+      }
+
+      async function extractTextForPdf(doc, token) {
+        if (state.pdfTextCache.has(doc.url)) {
+          return state.pdfTextCache.get(doc.url);
+        }
+
+        if (typeof window.pdfjsLib === 'undefined') {
+          throw new Error('PDF.js is not available.');
+        }
+
+        const pdf = await window.pdfjsLib.getDocument(doc.url).promise;
+        let contentText = '';
+
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          if (token !== state.pdfSearchToken) {
+            return null;
+          }
+          const page = await pdf.getPage(pageNumber);
+          const pageText = await page.getTextContent();
+          const strings = pageText.items.map((item) => item.str || '');
+          contentText += ` ${strings.join(' ')}`;
+        }
+
+        const finalText = contentText.trim();
+        state.pdfTextCache.set(doc.url, finalText);
+        return finalText;
+      }
+
+      async function performPdfTextSearch(query) {
+        if (!query || query.trim().length < 2) {
+          elements.pdfSearchResults.innerHTML = '';
+          showStatus('Enter at least 2 characters to search within PDFs.', '');
+          return;
+        }
+
+        const searchQuery = query.trim();
+        const token = ++state.pdfSearchToken;
+
+        if (typeof window.pdfjsLib === 'undefined') {
+          elements.pdfSearchResults.innerHTML = '<div class="empty-state">PDF text search requires the PDF.js CDN script to load successfully.</div>';
+          showStatus('PDF.js could not be loaded. This feature depends on a working network connection.', 'error');
+          return;
+        }
+
+        showStatus(`Indexing ${allDocs.length} PDF files...`, '');
+        const matches = [];
+
+        for (let index = 0; index < allDocs.length; index += 1) {
+          if (token !== state.pdfSearchToken) {
+            return;
+          }
+
+          const doc = allDocs[index];
+          try {
+            const extractedText = await extractTextForPdf(doc, token);
+            if (extractedText === null) {
+              return;
+            }
+
+            if (extractedText && extractedText.toLowerCase().includes(searchQuery.toLowerCase())) {
+              matches.push({
+                doc,
+                snippet: buildPdfSnippet(extractedText, searchQuery)
+              });
+            }
+
+            showStatus(`Searching PDF text: ${index + 1} / ${allDocs.length}`, '');
+          } catch (error) {
+            console.warn(`Unable to index ${doc.filename}:`, error);
+          }
+        }
+
+        if (token !== state.pdfSearchToken) {
+          return;
+        }
+
+        if (!matches.length) {
+          elements.pdfSearchResults.innerHTML = '<div class="empty-state">No PDF text matches were found. This may mean the text is not selectable or the file is image-only.</div>';
+          showStatus('No PDF text matches found. Scanned or image-only PDFs may need OCR before they can be searched.', '');
+          return;
+        }
+
+        elements.pdfSearchResults.innerHTML = matches.map(({ doc, snippet }) => `
+          <article class="result-card">
+            <div>
+              <p class="result-summary">${escapeHtml(doc.filename)}</p>
+              <p class="match-snippet">${escapeHtml(doc.practicalName)} • ${escapeHtml(snippet)}</p>
+            </div>
+            <div class="result-actions">
+              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(doc.url)}">View</button>
+              <button class="secondary-btn" type="button" data-action="download-doc" data-doc-url="${escapeHtml(doc.url)}" data-doc-name="${escapeHtml(doc.filename)}">Download</button>
+            </div>
+          </article>
+        `).join('');
+        showStatus(`Found ${matches.length} matching PDF document${matches.length === 1 ? '' : 's'}.`, 'success');
+      }
+
+      function attachEventHandlers() {
+        document.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-action]');
+          if (!button) {
+            return;
+          }
+
+          const action = button.dataset.action;
+
+          if (action === 'open-practical') {
+            const practicalId = button.dataset.practicalId;
+            showView('practical');
+            renderPractical(practicalId, '');
+            elements.practicalFilter.value = '';
+            return;
+          }
+
+          if (action === 'download-practical') {
+            const practicalId = button.dataset.practicalId;
+            createPracticalZip(practicalId);
+            return;
+          }
+
+          if (action === 'view-doc') {
+            const docUrl = button.dataset.docUrl;
+            openDocument(docUrl);
+            return;
+          }
+
+          if (action === 'download-doc') {
+            const docUrl = button.dataset.docUrl;
+            const docName = button.dataset.docName || decodeURIComponent(docUrl.split('/').pop());
+            handleDocDownload(docUrl, docName);
+          }
+        });
+
+        elements.clearGlobalSearch.addEventListener('click', () => {
+          elements.globalSearch.value = '';
+          elements.globalSearchResults.innerHTML = '';
+          state.globalQuery = '';
+        });
+
+        elements.globalSearch.addEventListener('input', (event) => {
+          const value = event.target.value;
+          state.globalQuery = value;
+          renderGlobalSearch(value);
+        });
+
+        elements.clearPdfTextSearch.addEventListener('click', () => {
+          elements.pdfTextSearch.value = '';
+          elements.pdfSearchResults.innerHTML = '';
+          showStatus('', '');
+          state.pdfSearchToken += 1;
+        });
+
+        let textSearchTimer = null;
+        elements.pdfTextSearch.addEventListener('input', (event) => {
+          const query = event.target.value;
+          clearTimeout(textSearchTimer);
+          if (!query.trim()) {
+            elements.pdfSearchResults.innerHTML = '';
+            showStatus('', '');
+            state.pdfSearchToken += 1;
+            return;
+          }
+
+          textSearchTimer = setTimeout(() => {
+            performPdfTextSearch(query);
+          }, 550);
+        });
+
+        elements.practicalFilter.addEventListener('input', (event) => {
+          const query = event.target.value;
+          if (state.currentPracticalId) {
+            renderPractical(state.currentPracticalId, query);
+          }
+        });
+
+        elements.backToHome.addEventListener('click', () => {
+          showView('home');
+          renderHome();
+        });
+
+        elements.viewerBack.addEventListener('click', () => {
+          if (state.currentPracticalId) {
+            showView('practical');
+            renderPractical(state.currentPracticalId, elements.practicalFilter.value);
+            return;
+          }
+          showView('home');
+        });
+
+        elements.openInNewTab.addEventListener('click', () => {
+          if (state.currentDoc) {
+            window.open(state.currentDoc.url, '_blank', 'noopener,noreferrer');
+          }
+        });
+
+        elements.downloadCurrentPdf.addEventListener('click', () => {
+          if (state.currentDoc) {
+            handleDocDownload(state.currentDoc.url, state.currentDoc.filename);
+          }
+        });
+
+        elements.pdfFrame.addEventListener('error', () => {
+          elements.viewerError.textContent = 'This PDF could not be displayed inline. Open it in a new tab or download it instead.';
+          elements.viewerError.style.display = 'block';
+          elements.pdfFrame.style.display = 'none';
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        renderHome();
+        showView('home');
+        attachEventHandlers();
+        showStatus('Use the filename search at the top or the PDF text search below to find documents faster.', '');
+      });
+    </script>
+  </body>
+</html>
