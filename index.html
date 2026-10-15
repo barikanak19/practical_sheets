@@ -78,24 +78,6 @@
         line-height: 1.2;
       }
 
-      .search-wrap {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-      }
-
-      .search-input {
-        flex: 1;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        min-height: 48px;
-        padding: 0 16px;
-        background: #fff;
-        color: var(--text);
-      }
-
-      .search-input:focus,
-      .filter-input:focus,
       .inline-search input:focus,
       button:focus,
       .folder-main:focus-visible {
@@ -235,8 +217,7 @@
         align-items: center;
       }
 
-      .inline-search input,
-      .filter-input {
+      .inline-search input {
         width: 100%;
         border: 1px solid var(--border);
         border-radius: 12px;
@@ -365,6 +346,7 @@
         margin: 0;
         color: var(--muted);
         font-size: 0.9rem;
+        overflow-wrap: anywhere;
       }
 
       .empty-state {
@@ -421,7 +403,10 @@
           align-items: stretch;
         }
 
-        .search-wrap,
+        .result-card {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
         .inline-search,
         .folder-actions,
         .doc-actions,
@@ -454,11 +439,6 @@
         <div class="brand-row">
           <h1>Practical PDF Library</h1>
         </div>
-        <div class="search-wrap" aria-label="Global search">
-          <label class="sr-only" for="globalSearch">Search all practical PDFs</label>
-          <input id="globalSearch" class="search-input" type="search" placeholder="Search filenames across all practicals..." />
-          <button id="clearGlobalSearch" class="ghost-btn" type="button">Clear</button>
-        </div>
       </header>
 
       <main class="container">
@@ -474,20 +454,20 @@
             </div>
           </div>
 
-          <div class="search-panel">
-            <div class="search-panel-header">
-              <h3>PDF text search</h3>
-              <span class="muted">Selectable text only • may require OCR for scanned files</span>
+          <div id="homeSearchSlot">
+            <div class="search-panel">
+              <div class="search-panel-header">
+                <h3>PDF text search</h3>
+                <span class="muted">Selectable text only • may require OCR for scanned files</span>
+              </div>
+              <div class="inline-search">
+                <input id="pdfTextSearch" type="search" placeholder="Search words inside PDF documents..." />
+                <button id="clearPdfTextSearch" class="ghost-btn" type="button">Reset</button>
+              </div>
+              <div id="pdfSearchStatus" class="status"></div>
+              <div id="pdfSearchResults" class="result-list"></div>
             </div>
-            <div class="inline-search">
-              <input id="pdfTextSearch" type="search" placeholder="Search words inside PDF documents..." />
-              <button id="clearPdfTextSearch" class="ghost-btn" type="button">Reset</button>
-            </div>
-            <div id="pdfSearchStatus" class="status"></div>
-            <div id="pdfSearchResults" class="result-list"></div>
           </div>
-
-          <div id="globalSearchResults" class="result-list"></div>
           <div id="folderGrid" class="folder-grid"></div>
         </section>
 
@@ -496,16 +476,13 @@
             <button id="backToHome" class="secondary-btn" type="button">Back to Home</button>
             <h2 id="practicalTitle">Practical</h2>
           </div>
-          <div class="search-panel" style="margin-top: 4px; margin-bottom: 18px;">
-            <label class="sr-only" for="practicalFilter">Filter PDF list</label>
-            <input id="practicalFilter" class="filter-input" type="search" placeholder="Filter PDFs within this practical..." />
-          </div>
+          <div id="practicalSearchSlot"></div>
           <div id="practicalList" class="document-list"></div>
         </section>
 
         <section id="viewerView" class="view">
           <div class="viewer-topbar">
-            <button id="viewerBack" class="secondary-btn" type="button">Back to Practical</button>
+            <button id="viewerBack" class="secondary-btn" type="button">Back</button>
             <button id="openInNewTab" class="secondary-btn" type="button">Open in New Tab</button>
             <button id="downloadCurrentPdf" class="primary-btn" type="button">Download PDF</button>
           </div>
@@ -518,7 +495,7 @@
           </div>
         </section>
       </main>
-      <footer class="site-footer">this website for only study.</footer>
+      <footer class="site-footer">created by developer</footer>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
@@ -664,12 +641,12 @@
       const INDEX_DB_VERSION = 2;
       const INDEX_VERSION = 1;
       const MANIFEST_SIGNATURE = allDocs.map((doc) => `${doc.url}|${doc.filename}|${doc.practicalName}`).join('|');
+      const HISTORY_APP_KEY = 'practical-pdf-library';
 
       const state = {
         currentView: 'home',
         currentPracticalId: null,
         currentDoc: null,
-        globalQuery: '',
         pdfSearchToken: 0,
         pdfTextCache: new Map(),
         zipInProgress: false,
@@ -684,9 +661,9 @@
       const elements = {
         folderGrid: document.getElementById('folderGrid'),
         totalDocCount: document.getElementById('totalDocCount'),
-        globalSearch: document.getElementById('globalSearch'),
-        clearGlobalSearch: document.getElementById('clearGlobalSearch'),
-        globalSearchResults: document.getElementById('globalSearchResults'),
+        searchPanel: document.querySelector('.search-panel'),
+        homeSearchSlot: document.getElementById('homeSearchSlot'),
+        practicalSearchSlot: document.getElementById('practicalSearchSlot'),
         pdfTextSearch: document.getElementById('pdfTextSearch'),
         clearPdfTextSearch: document.getElementById('clearPdfTextSearch'),
         pdfSearchStatus: document.getElementById('pdfSearchStatus'),
@@ -694,7 +671,6 @@
         practicalView: document.getElementById('practicalView'),
         practicalTitle: document.getElementById('practicalTitle'),
         practicalList: document.getElementById('practicalList'),
-        practicalFilter: document.getElementById('practicalFilter'),
         viewerView: document.getElementById('viewerView'),
         viewerTitle: document.getElementById('viewerTitle'),
         pdfFrame: document.getElementById('pdfFrame'),
@@ -722,11 +698,153 @@
         return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
       }
 
+      function isAppRoute(route) {
+        return Boolean(route && route.app === HISTORY_APP_KEY && ['home', 'practical', 'viewer'].includes(route.view));
+      }
+
+      function createRoute(view, values = {}) {
+        return {
+          app: HISTORY_APP_KEY,
+          view,
+          practicalId: values.practicalId || null,
+          docUrl: values.docUrl || null,
+          query: values.query || ''
+        };
+      }
+
+      function currentRoute() {
+        const route = window.history.state;
+        if (isAppRoute(route)) {
+          return { ...route };
+        }
+        return createRoute(state.currentView, {
+          practicalId: state.currentPracticalId,
+          docUrl: state.currentDoc && state.currentDoc.url,
+          query: elements.pdfTextSearch.value
+        });
+      }
+
+      function saveSearchQuery(query) {
+        const route = currentRoute();
+        route.query = query;
+        if (isAppRoute(window.history.state)) {
+          window.history.replaceState(route, '');
+        }
+      }
+
+      function navigateToRoute(route, replace = false) {
+        if (replace) {
+          window.history.replaceState(route, '');
+        } else {
+          window.history.pushState(route, '');
+        }
+        renderRoute(route);
+      }
+
+      function navigateToPractical(practicalId) {
+        const parent = currentRoute();
+        const route = createRoute('practical', {
+          practicalId,
+          query: elements.pdfTextSearch.value
+        });
+        route.parent = parent;
+        navigateToRoute(route);
+      }
+
+      function navigateToDocument(docUrl) {
+        const parent = currentRoute();
+        const doc = allDocs.find((item) => item.url === docUrl);
+        if (!doc) {
+          showStatus('The selected PDF could not be found.', 'error');
+          return;
+        }
+
+        const route = createRoute('viewer', {
+          practicalId: doc.practicalId,
+          docUrl,
+          query: elements.pdfTextSearch.value
+        });
+        route.parent = parent;
+        navigateToRoute(route);
+      }
+
+      function goBackWithinApp(fallbackRoute) {
+        const route = window.history.state;
+        if (window.history.length > 1 && isAppRoute(route) && isAppRoute(route.parent)) {
+          window.history.back();
+          return;
+        }
+
+        navigateToRoute(fallbackRoute, true);
+      }
+
+      function restorePdfSearch(query, practicalId) {
+        clearTimeout(state.textSearchTimer);
+        state.pdfSearchToken += 1;
+        elements.pdfTextSearch.value = query;
+        elements.pdfSearchResults.innerHTML = '';
+        showStatus('', '');
+
+        if (query.trim().length >= 2) {
+          performPdfTextSearch(query, practicalId);
+        }
+      }
+
       function showView(name) {
         state.currentView = name;
+        if (name === 'home') {
+          elements.homeSearchSlot.appendChild(elements.searchPanel);
+        } else if (name === 'practical') {
+          elements.practicalSearchSlot.appendChild(elements.searchPanel);
+        }
         document.getElementById('homeView').classList.toggle('active', name === 'home');
         elements.practicalView.classList.toggle('active', name === 'practical');
         elements.viewerView.classList.toggle('active', name === 'viewer');
+      }
+
+      function renderRoute(route) {
+        if (!isAppRoute(route)) {
+          route = createRoute('home');
+          window.history.replaceState(route, '');
+        }
+
+        if (route.view === 'home') {
+          state.currentDoc = null;
+          state.currentPracticalId = null;
+          renderHome();
+          showView('home');
+          restorePdfSearch(route.query || '', null);
+          return;
+        }
+
+        if (route.view === 'practical') {
+          const practical = practicals.find((item) => item.id === route.practicalId);
+          if (!practical) {
+            const homeRoute = createRoute('home', { query: route.query });
+            window.history.replaceState(homeRoute, '');
+            renderRoute(homeRoute);
+            return;
+          }
+
+          state.currentDoc = null;
+          state.currentPracticalId = practical.id;
+          renderPractical(practical.id);
+          showView('practical');
+          restorePdfSearch(route.query || '', practical.id);
+          return;
+        }
+
+        const doc = allDocs.find((item) => item.url === route.docUrl);
+        if (!doc) {
+          const fallback = isAppRoute(route.parent)
+            ? route.parent
+            : createRoute('home', { query: route.query });
+          window.history.replaceState(fallback, '');
+          renderRoute(fallback);
+          return;
+        }
+
+        openDocument(doc.url);
       }
 
       function renderHome() {
@@ -748,39 +866,7 @@
         `).join('');
       }
 
-      function renderGlobalSearch(query) {
-        const trimmed = query.trim();
-        if (!trimmed) {
-          elements.globalSearchResults.innerHTML = '';
-          return;
-        }
-
-        const q = trimmed.toLowerCase();
-        const matches = allDocs.filter((doc) => {
-          const text = `${doc.filename} ${doc.practicalName} ${doc.title}`.toLowerCase();
-          return text.includes(q);
-        });
-
-        if (!matches.length) {
-          elements.globalSearchResults.innerHTML = '<div class="empty-state">No matching PDFs found for this filename search.</div>';
-          return;
-        }
-
-        elements.globalSearchResults.innerHTML = matches.map((doc) => `
-          <article class="result-card">
-            <div>
-              <p class="result-summary">${escapeHtml(doc.filename)}</p>
-              <p class="match-snippet">${escapeHtml(doc.practicalName)}</p>
-            </div>
-            <div class="result-actions">
-              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(doc.url)}">View</button>
-              <button class="secondary-btn" type="button" data-action="download-doc" data-doc-url="${escapeHtml(doc.url)}" data-doc-name="${escapeHtml(doc.filename)}">Download</button>
-            </div>
-          </article>
-        `).join('');
-      }
-
-      function renderPractical(practicalId, filterQuery = '') {
+      function renderPractical(practicalId) {
         const practical = practicals.find((item) => item.id === practicalId);
         if (!practical) {
           elements.practicalList.innerHTML = '<div class="empty-state">This practical is unavailable.</div>';
@@ -789,15 +875,12 @@
 
         state.currentPracticalId = practicalId;
         elements.practicalTitle.textContent = practical.name;
-        const q = filterQuery.trim().toLowerCase();
-        const filteredDocs = practical.docs.filter((doc) => doc.filename.toLowerCase().includes(q));
-
-        if (!filteredDocs.length) {
-          elements.practicalList.innerHTML = '<div class="empty-state">No PDFs match this filter in this practical.</div>';
+        if (!practical.docs.length) {
+          elements.practicalList.innerHTML = '<div class="empty-state">No PDFs are available in this practical.</div>';
           return;
         }
 
-        elements.practicalList.innerHTML = filteredDocs.map((doc) => `
+        elements.practicalList.innerHTML = practical.docs.map((doc) => `
           <div class="doc-row">
             <div>
               <p class="doc-title">${escapeHtml(doc.filename)}</p>
@@ -827,6 +910,11 @@
         elements.pdfFrame.style.display = 'block';
         elements.viewerError.style.display = 'none';
         showView('viewer');
+        const parent = window.history.state && window.history.state.parent;
+        const parentPractical = isAppRoute(parent) && parent.view === 'practical'
+          ? practicals.find((item) => item.id === parent.practicalId)
+          : null;
+        elements.viewerBack.textContent = parentPractical ? `Back to ${parentPractical.name}` : 'Back to Home';
       }
 
       function downloadFile(url, fileName) {
@@ -1172,17 +1260,22 @@
         return highlighted;
       }
 
-      function searchCachedPdfIndex(query) {
+      function searchCachedPdfIndex(query, practicalId = null) {
         const normalizedQuery = normalizeText(query);
         const terms = normalizedQuery.split(/\s+/).filter(Boolean);
         if (!normalizedQuery || terms.length === 0) {
           return [];
         }
 
+        const practical = practicals.find((item) => item.id === practicalId);
+        const practicalUrls = practical ? new Set(practical.docs.map((doc) => doc.url)) : null;
         const matches = [];
 
         for (const record of state.pdfIndexRecords.values()) {
           if (!record || !Array.isArray(record.pages)) {
+            continue;
+          }
+          if (practicalUrls && !practicalUrls.has(record.url)) {
             continue;
           }
 
@@ -1249,7 +1342,7 @@
         `).join('');
       }
 
-      async function performPdfTextSearch(query) {
+      async function performPdfTextSearch(query, practicalId = null) {
         const searchQuery = query.trim();
         if (!searchQuery || searchQuery.length < 2) {
           elements.pdfSearchResults.innerHTML = '';
@@ -1271,7 +1364,7 @@
             return;
           }
 
-          const matches = searchCachedPdfIndex(searchQuery);
+          const matches = searchCachedPdfIndex(searchQuery, practicalId);
           if (currentToken !== state.pdfSearchToken) {
             return;
           }
@@ -1302,9 +1395,7 @@
 
           if (action === 'open-practical') {
             const practicalId = button.dataset.practicalId;
-            showView('practical');
-            renderPractical(practicalId, '');
-            elements.practicalFilter.value = '';
+            navigateToPractical(practicalId);
             return;
           }
 
@@ -1316,7 +1407,7 @@
 
           if (action === 'view-doc') {
             const docUrl = button.dataset.docUrl;
-            openDocument(docUrl);
+            navigateToDocument(docUrl);
             return;
           }
 
@@ -1327,24 +1418,13 @@
           }
         });
 
-        elements.clearGlobalSearch.addEventListener('click', () => {
-          elements.globalSearch.value = '';
-          elements.globalSearchResults.innerHTML = '';
-          state.globalQuery = '';
-        });
-
-        elements.globalSearch.addEventListener('input', (event) => {
-          const value = event.target.value;
-          state.globalQuery = value;
-          renderGlobalSearch(value);
-        });
-
         elements.clearPdfTextSearch.addEventListener('click', () => {
           elements.pdfTextSearch.value = '';
           elements.pdfSearchResults.innerHTML = '';
           showStatus('', '');
           state.pdfSearchToken += 1;
           clearTimeout(state.textSearchTimer);
+          saveSearchQuery('');
         });
 
         elements.pdfTextSearch.addEventListener('input', (event) => {
@@ -1353,6 +1433,7 @@
 
           clearTimeout(state.textSearchTimer);
           state.pdfSearchToken += 1;
+          saveSearchQuery(query);
 
           if (!trimmed) {
             elements.pdfSearchResults.innerHTML = '';
@@ -1360,30 +1441,32 @@
             return;
           }
 
+          const practicalId = state.currentView === 'practical' ? state.currentPracticalId : null;
           state.textSearchTimer = setTimeout(() => {
-            performPdfTextSearch(trimmed);
+            performPdfTextSearch(trimmed, practicalId);
           }, 250);
         });
 
-        elements.practicalFilter.addEventListener('input', (event) => {
-          const query = event.target.value;
-          if (state.currentPracticalId) {
-            renderPractical(state.currentPracticalId, query);
-          }
-        });
-
         elements.backToHome.addEventListener('click', () => {
-          showView('home');
-          renderHome();
+          goBackWithinApp(createRoute('home', { query: elements.pdfTextSearch.value }));
         });
 
         elements.viewerBack.addEventListener('click', () => {
-          if (state.currentPracticalId) {
-            showView('practical');
-            renderPractical(state.currentPracticalId, elements.practicalFilter.value);
-            return;
+          const route = window.history.state;
+          const fallback = isAppRoute(route && route.parent)
+            ? route.parent
+            : createRoute('home', { query: elements.pdfTextSearch.value });
+          goBackWithinApp(fallback);
+        });
+
+        window.addEventListener('popstate', (event) => {
+          if (isAppRoute(event.state)) {
+            renderRoute(event.state);
+          } else {
+            const homeRoute = createRoute('home');
+            window.history.replaceState(homeRoute, '');
+            renderRoute(homeRoute);
           }
-          showView('home');
         });
 
         elements.openInNewTab.addEventListener('click', () => {
@@ -1406,9 +1489,12 @@
       }
 
       document.addEventListener('DOMContentLoaded', () => {
-        renderHome();
-        showView('home');
         attachEventHandlers();
+        const initialRoute = isAppRoute(window.history.state)
+          ? window.history.state
+          : createRoute('home');
+        window.history.replaceState(initialRoute, '');
+        renderRoute(initialRoute);
         showStatus('Loading the PDF text index...', '');
         ensurePdfIndexReady().catch(() => {
           showStatus('The PDF text index could not be loaded. Fallback search remains available.', 'error');
