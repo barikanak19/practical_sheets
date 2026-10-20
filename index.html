@@ -689,8 +689,12 @@
             if (!db.objectStoreNames.contains('documents')) db.createObjectStore('documents', { keyPath: 'url' });
             if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
           };
-          request.onsuccess = () => resolve(request.result);
+          request.onsuccess = () => {
+            request.result.onversionchange = () => request.result.close();
+            resolve(request.result);
+          };
           request.onerror = () => reject(request.error || new Error('Unable to open the PDF index database.'));
+          request.onblocked = () => reject(new Error('PDF index storage is blocked by another open tab.'));
         });
       }
 
@@ -737,6 +741,55 @@
           tx.onerror = () => reject(tx.error || new Error('Unable to reset the PDF text index.'));
           tx.onabort = () => reject(tx.error || new Error('Resetting the PDF text index was aborted.'));
         });
+      }
+
+      function showIndexSummary() {
+        const records = [...state.pdfIndexRecords.values()];
+        const noText = records.filter((record) => record.status === 'empty');
+        const failed = records.filter((record) => record.status === 'error');
+        const searchable = records.filter((record) => record.status === 'indexed').length;
+        const details = [];
+        if (noText.length) details.push(`OCR may be required for: ${noText.map((record) => record.filename).join(', ')}.`);
+        if (failed.length) details.push(`Text extraction failed for: ${failed.map((record) => record.filename).join(', ')}.`);
+        showStatus(
+          `Index ready: ${searchable}/${allDocs.length} PDFs have searchable text.${details.length ? ` ${details.join(' ')}` : ''}`,
+          failed.length ? 'error' : searchable ? 'success' : 'error'
+        );
+      }
+
+      async function buildInMemoryPdfIndex() {
+        const indexedCount = [...state.pdfIndexRecords.values()]
+          .filter((record) => record.status === 'indexed' || record.status === 'empty').length;
+        let completed = indexedCount;
+
+        for (const doc of allDocs) {
+          const existing = state.pdfIndexRecords.get(doc.url);
+          if (existing && (existing.status === 'indexed' || existing.status === 'empty')) continue;
+
+          showStatus(`Indexing PDFs for this visit: ${completed + 1}/${allDocs.length}...`, '');
+          try {
+            const record = await extractPdfDocumentText(doc, existing ? existing.revision : null);
+            state.pdfIndexRecords.set(doc.url, record);
+          } catch (error) {
+            console.error(`Unable to extract text from ${doc.filename}:`, error);
+            state.pdfIndexRecords.set(doc.url, {
+              url: doc.url,
+              filename: doc.filename,
+              revision: existing ? existing.revision : null,
+              pages: [],
+              status: 'error',
+              error: error.message,
+              indexedAt: Date.now()
+            });
+          }
+          completed += 1;
+          await new Promise((resolve) => window.setTimeout(resolve, 0));
+        }
+
+        state.pdfIndexReady = allDocs.every((doc) => state.pdfIndexRecords.has(doc.url));
+        state.pdfIndexValidated = state.pdfIndexReady;
+        showIndexSummary();
+        return state.pdfIndexRecords;
       }
 
       async function getPdfRevision(doc) {
@@ -806,21 +859,17 @@
             if (showProgress) showStatus(`Indexing PDFs: ${completed}/${docsToIndex.length} updated.`, '');
           }
         };
-        await Promise.all([processNext(), processNext()]);
+        const isTouchDevice = window.matchMedia('(pointer: coarse)').matches
+          || (navigator.maxTouchPoints || 0) > 0;
+        const workerCount = isTouchDevice ? 1 : 2;
+        await Promise.all(Array.from(
+          { length: Math.min(workerCount, docsToIndex.length) },
+          () => processNext()
+        ));
         await writeIndexMeta(db);
         state.pdfIndexReady = true;
         if (showProgress) {
-          const records = [...state.pdfIndexRecords.values()];
-          const noText = records.filter((record) => record.status === 'empty');
-          const failed = records.filter((record) => record.status === 'error');
-          const searchable = records.filter((record) => record.status === 'indexed').length;
-          const details = [];
-          if (noText.length) details.push(`OCR may be required for: ${noText.map((record) => record.filename).join(', ')}.`);
-          if (failed.length) details.push(`Text extraction failed for: ${failed.map((record) => record.filename).join(', ')}.`);
-          showStatus(
-            `Index ready: ${searchable}/${allDocs.length} PDFs have searchable text.${details.length ? ` ${details.join(' ')}` : ''}`,
-            failed.length ? 'error' : searchable ? 'success' : 'error'
-          );
+          showIndexSummary();
         }
         state.pdfIndexValidated = true;
         return docsToIndex.length;
@@ -863,9 +912,8 @@
             return state.pdfIndexRecords;
           } catch (error) {
             console.error('PDF index preparation failed:', error);
-            state.pdfIndexReady = state.pdfIndexRecords.size > 0;
-            showStatus('The PDF text index could not be prepared. Check your connection and try again.', 'error');
-            throw error;
+            showStatus('Persistent PDF caching is unavailable. Building a temporary search index for this visit...', '');
+            return await buildInMemoryPdfIndex();
           } finally {
             if (!state.pdfIndexRefreshPromise && db) db.close();
             state.pdfIndexLoadingPromise = null;
