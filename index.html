@@ -216,11 +216,17 @@
       }
 
       .inline-search input {
+        flex: 1 1 auto;
+        min-width: 0;
         width: 100%;
         border: 1px solid var(--border);
         border-radius: 12px;
         min-height: 46px;
         padding: 0 14px;
+      }
+
+      .inline-search button {
+        flex: 0 0 auto;
       }
 
       .status {
@@ -389,6 +395,7 @@
         }
 
         .pdf-card-actions > *,
+        .inline-search button,
         .result-actions > * {
           width: 100%;
         }
@@ -423,7 +430,7 @@
             </div>
             <div class="stat-box">
               <strong id="totalDocCount">0</strong>
-              <span>documents</span>
+              <span>PDFs</span>
             </div>
           </div>
 
@@ -431,12 +438,13 @@
             <div class="search-panel">
               <div class="search-panel-header">
                 <h3>PDF text search</h3>
-                <span class="muted">Selectable text only • may require OCR for scanned files</span>
+                <span class="muted">Search words and phrases in PDF contents</span>
               </div>
-              <div class="inline-search">
-                <input id="pdfTextSearch" type="search" placeholder="Search words inside PDF documents..." />
+              <form id="pdfSearchForm" class="inline-search" role="search">
+                <input id="pdfTextSearch" type="search" placeholder="Search words inside PDF documents..." aria-label="Search PDF contents" />
+                <button class="primary-btn" type="submit">Search</button>
                 <button id="clearPdfTextSearch" class="ghost-btn" type="button">Reset</button>
-              </div>
+              </form>
               <div id="pdfSearchStatus" class="status"></div>
               <div id="pdfSearchResults" class="result-list"></div>
             </div>
@@ -494,6 +502,7 @@
       const elements = {
         pdfGrid: document.getElementById('pdfGrid'),
         totalDocCount: document.getElementById('totalDocCount'),
+        pdfSearchForm: document.getElementById('pdfSearchForm'),
         pdfTextSearch: document.getElementById('pdfTextSearch'),
         clearPdfTextSearch: document.getElementById('clearPdfTextSearch'),
         pdfSearchStatus: document.getElementById('pdfSearchStatus'),
@@ -771,7 +780,9 @@
         }));
         const docsToIndex = allDocs.filter((doc, index) => {
           const cached = cachedRecords.get(doc.url);
-          return !cached || (revisions[index].available && cached.revision !== revisions[index].value);
+          return !cached
+            || cached.status === 'error'
+            || (revisions[index].available && cached.revision !== revisions[index].value);
         });
         let completed = 0;
         let nextIndex = 0;
@@ -799,10 +810,17 @@
         await writeIndexMeta(db);
         state.pdfIndexReady = true;
         if (showProgress) {
-          const unsearchable = [...state.pdfIndexRecords.values()].filter((record) => record.status !== 'indexed').length;
-          showStatus(unsearchable
-            ? `Index ready. ${unsearchable} PDF${unsearchable === 1 ? '' : 's'} had no searchable text or could not be read.`
-            : `Index ready for all ${allDocs.length} PDFs.`, unsearchable ? '' : 'success');
+          const records = [...state.pdfIndexRecords.values()];
+          const noText = records.filter((record) => record.status === 'empty');
+          const failed = records.filter((record) => record.status === 'error');
+          const searchable = records.filter((record) => record.status === 'indexed').length;
+          const details = [];
+          if (noText.length) details.push(`OCR may be required for: ${noText.map((record) => record.filename).join(', ')}.`);
+          if (failed.length) details.push(`Text extraction failed for: ${failed.map((record) => record.filename).join(', ')}.`);
+          showStatus(
+            `Index ready: ${searchable}/${allDocs.length} PDFs have searchable text.${details.length ? ` ${details.join(' ')}` : ''}`,
+            failed.length ? 'error' : searchable ? 'success' : 'error'
+          );
         }
         state.pdfIndexValidated = true;
         return docsToIndex.length;
@@ -914,7 +932,7 @@
 
       function renderPdfTextSearchResults(matches) {
         if (!matches.length) {
-          elements.pdfSearchResults.innerHTML = '<div class="empty-state">No searchable text matched. Scanned or image-only PDFs need OCR to become searchable.</div>';
+          elements.pdfSearchResults.innerHTML = '<div class="empty-state">No matching text was found in the indexed PDF pages. Check the indexing status for PDFs that may need OCR or could not be read.</div>';
           return;
         }
         elements.pdfSearchResults.innerHTML = matches.map((match) => `
@@ -954,11 +972,22 @@
           if (currentToken !== state.pdfSearchToken) return;
           renderPdfTextSearchResults(matches);
           if (matches.length) {
-            const issues = [...state.pdfIndexRecords.values()].filter((record) => record.status !== 'indexed').length;
-            showStatus(`Found ${matches.length} matching PDF${matches.length === 1 ? '' : 's'}${issues ? ` • ${issues} PDF${issues === 1 ? '' : 's'} could not be searched` : ''}.`, 'success');
+            const noText = [...state.pdfIndexRecords.values()].filter((record) => record.status === 'empty');
+            const failed = [...state.pdfIndexRecords.values()].filter((record) => record.status === 'error');
+            const details = [];
+            if (noText.length) details.push(`OCR may be required for: ${noText.map((record) => record.filename).join(', ')}.`);
+            if (failed.length) details.push(`Could not extract text from: ${failed.map((record) => record.filename).join(', ')}.`);
+            showStatus(
+              `Found ${matches.length} matching PDF${matches.length === 1 ? '' : 's'}.${details.length ? ` ${details.join(' ')}` : ''}`,
+              failed.length ? 'error' : 'success'
+            );
           } else {
-            const errors = [...state.pdfIndexRecords.values()].filter((record) => record.status === 'error').length;
-            showStatus(errors ? `No matches found. ${errors} PDF${errors === 1 ? '' : 's'} could not be indexed.` : 'No matching selectable text was found. Scanned PDFs may need OCR.', '');
+            const noText = [...state.pdfIndexRecords.values()].filter((record) => record.status === 'empty');
+            const failed = [...state.pdfIndexRecords.values()].filter((record) => record.status === 'error');
+            const details = [];
+            if (noText.length) details.push(`OCR may be required for: ${noText.map((record) => record.filename).join(', ')}.`);
+            if (failed.length) details.push(`Could not extract text from: ${failed.map((record) => record.filename).join(', ')}.`);
+            showStatus(`No matching text found.${details.length ? ` ${details.join(' ')}` : ''}`, failed.length ? 'error' : '');
           }
         } catch (error) {
           console.error('PDF search failed:', error);
@@ -987,6 +1016,20 @@
           state.pdfSearchToken += 1;
           clearTimeout(state.textSearchTimer);
           saveSearchQuery('');
+        });
+
+        elements.pdfSearchForm.addEventListener('submit', (event) => {
+          event.preventDefault();
+          clearTimeout(state.textSearchTimer);
+          state.pdfSearchToken += 1;
+          const query = elements.pdfTextSearch.value.trim();
+          saveSearchQuery(query);
+          if (query) {
+            performPdfTextSearch(query);
+          } else {
+            elements.pdfSearchResults.innerHTML = '';
+            showStatus('Enter a word, phrase, or sentence to search within PDFs.', '');
+          }
         });
 
         elements.pdfTextSearch.addEventListener('input', (event) => {
