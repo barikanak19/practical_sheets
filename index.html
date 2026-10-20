@@ -80,7 +80,7 @@
 
       .inline-search input:focus,
       button:focus,
-      .folder-main:focus-visible {
+      .doc-title-button:focus-visible {
         outline: 3px solid rgba(31, 95, 203, 0.18);
         outline-offset: 2px;
       }
@@ -135,8 +135,7 @@
         display: block;
       }
 
-      .page-head,
-      .view-header {
+      .page-head {
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -179,8 +178,7 @@
       }
 
       .search-panel,
-      .folder-card,
-      .doc-row,
+      .pdf-card,
       .result-card {
         background: var(--panel);
         border: 1px solid var(--border);
@@ -240,80 +238,60 @@
         color: var(--success);
       }
 
-      .folder-grid {
+      .pdf-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 18px;
       }
 
-      .folder-card {
+      .pdf-card {
         padding: 18px;
       }
 
-      .folder-main {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        width: 100%;
-        border: none;
-        background: transparent;
-        padding: 0;
-        text-align: left;
-      }
-
-      .folder-icon {
-        width: 46px;
-        height: 46px;
-        border-radius: 12px;
-        display: grid;
-        place-items: center;
-        font-size: 1.7rem;
-        background: #eaf0ff;
-        color: var(--primary);
-      }
-
-      .folder-main h3 {
+      .pdf-card h3 {
         margin: 0 0 4px;
         font-size: 1.1rem;
+        overflow-wrap: anywhere;
       }
 
-      .folder-main p {
-        margin: 0;
+      .doc-title-button {
+        border: 0;
+        background: transparent;
+        color: var(--primary);
+        padding: 0;
+        text-align: left;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+      }
+
+      .doc-title-button:hover {
+        color: var(--primary-dark);
+        text-decoration: underline;
+      }
+
+      .pdf-card .doc-meta {
+        margin: 8px 0 0;
         color: var(--muted);
+        font-size: 0.85rem;
       }
 
-      .folder-actions {
+      .pdf-card-actions {
         display: flex;
         gap: 10px;
         margin-top: 18px;
       }
 
-      .folder-actions > * {
+      .pdf-card-actions > * {
         flex: 1;
       }
 
-      .document-list,
       .result-list {
         display: grid;
         gap: 14px;
       }
 
-      .doc-row,
       .result-card {
         padding: 14px 16px;
-      }
-
-      .doc-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-      }
-
-      .doc-title {
-        margin: 0;
-        font-weight: 700;
-        overflow-wrap: anywhere;
       }
 
       .doc-meta {
@@ -322,7 +300,6 @@
         font-size: 0.85rem;
       }
 
-      .doc-actions,
       .result-actions {
         display: flex;
         flex-wrap: wrap;
@@ -395,9 +372,7 @@
       @media (max-width: 768px) {
         .brand-row,
         .page-head,
-        .view-header,
         .search-panel-header,
-        .doc-row,
         .result-card {
           flex-direction: column;
           align-items: stretch;
@@ -408,14 +383,12 @@
         }
 
         .inline-search,
-        .folder-actions,
-        .doc-actions,
+        .pdf-card-actions,
         .result-actions {
           flex-direction: column;
         }
 
-        .folder-actions > *,
-        .doc-actions > *,
+        .pdf-card-actions > *,
         .result-actions > * {
           width: 100%;
         }
@@ -446,7 +419,7 @@
           <div class="page-head">
             <div>
               <p class="eyebrow">Public library</p>
-              <h2>Browse practical folders</h2>
+              <h2>Browse PDFs</h2>
             </div>
             <div class="stat-box">
               <strong id="totalDocCount">0</strong>
@@ -468,16 +441,7 @@
               <div id="pdfSearchResults" class="result-list"></div>
             </div>
           </div>
-          <div id="folderGrid" class="folder-grid"></div>
-        </section>
-
-        <section id="practicalView" class="view" aria-live="polite">
-          <div class="view-header">
-            <button id="backToHome" class="secondary-btn" type="button">Back to Home</button>
-            <h2 id="practicalTitle">Practical</h2>
-          </div>
-          <div id="practicalSearchSlot"></div>
-          <div id="practicalList" class="document-list"></div>
+          <div id="pdfGrid" class="pdf-grid"></div>
         </section>
 
         <section id="viewerView" class="view">
@@ -498,187 +462,50 @@
       <footer class="site-footer">created by developer</footer>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
     <script>
-      const practicals = [
-        {
-          id: 'ai-ml',
-          name: 'AI-ML',
-          docs: [
-            { filename: 'AI Module 2 Practical No.2-7.pdf', url: 'AI-ML/AI Module 2 Practical No.2-7.pdf' },
-            { filename: 'AI Module2 Practical No.1.pdf', url: 'AI-ML/AI Module2 Practical No.1.pdf' },
-            { filename: 'AI Practical No.3 07_08_2026.pdf', url: 'AI-ML/AI Practical No.3 07_08_2026.pdf' },
-            { filename: 'AI Practical No.5.pdf', url: 'AI-ML/AI Practical No.5.pdf' },
-            { filename: 'jira 1.pdf', url: 'AI-ML/jira 1.pdf' },
-            { filename: 'jira 2.pdf', url: 'AI-ML/jira 2.pdf' },
-            { filename: 'jira 3.pdf', url: 'AI-ML/jira 3.pdf' },
-            { filename: 'jira 4.pdf', url: 'AI-ML/jira 4.pdf' },
-            { filename: 'Jira Practical 8.PDF', url: 'AI-ML/Jira Practical 8.PDF' },
-            { filename: 'Jira Practical 9-12.pdf', url: 'AI-ML/Jira Practical 9-12.pdf' },
-            { filename: 'Practical 3.pdf', url: 'AI-ML/Practical 3.pdf' },
-            { filename: 'Practical 5.pdf', url: 'AI-ML/Practical 5.pdf' },
-            { filename: 'practical 7.pdf', url: 'AI-ML/practical 7.pdf' },
-            { filename: 'Practical 8.pdf', url: 'AI-ML/Practical 8.pdf' },
-            { filename: 'Practical No 1 (1).pdf', url: 'AI-ML/Practical No 1 (1).pdf' }
-          ]
-        },
-        {
-          id: 'android',
-          name: 'Android',
-          docs: [
-            { filename: 'DOC-20260803-WA0029..pdf', url: 'Android/DOC-20260803-WA0029..pdf' },
-            { filename: 'DOC-20260810-WA0025.pdf', url: 'Android/DOC-20260810-WA0025.pdf' },
-            { filename: 'DOC-20260810-WA0027.pdf', url: 'Android/DOC-20260810-WA0027.pdf' },
-            { filename: 'DOC-20260831-WA0044.pdf', url: 'Android/DOC-20260831-WA0044.pdf' },
-            { filename: 'DOC-20261014-WA0000.pdf', url: 'Android/DOC-20261014-WA0000.pdf' },
-            { filename: 'DOC-20261014-WA0001.pdf', url: 'Android/DOC-20261014-WA0001.pdf' },
-            { filename: 'DOC-20261014-WA0002.pdf', url: 'Android/DOC-20261014-WA0002.pdf' },
-            { filename: 'DOC-20261014-WA0003.pdf', url: 'Android/DOC-20261014-WA0003.pdf' },
-            { filename: 'DOC-20261014-WA0004.pdf', url: 'Android/DOC-20261014-WA0004.pdf' },
-            { filename: 'DOC-20261014-WA0005.pdf', url: 'Android/DOC-20261014-WA0005.pdf' },
-            { filename: 'DOC-20261014-WA0006.pdf', url: 'Android/DOC-20261014-WA0006.pdf' },
-            { filename: 'DOC-20261014-WA0007.pdf', url: 'Android/DOC-20261014-WA0007.pdf' },
-            { filename: 'DOC-20261014-WA0008.pdf', url: 'Android/DOC-20261014-WA0008.pdf' },
-            { filename: 'DOC-20261014-WA0009.pdf', url: 'Android/DOC-20261014-WA0009.pdf' },
-            { filename: 'DOC-20261014-WA0010.pdf', url: 'Android/DOC-20261014-WA0010.pdf' },
-            { filename: 'DOC-20261014-WA0011.pdf', url: 'Android/DOC-20261014-WA0011.pdf' },
-            { filename: 'DOC-20261014-WA0012.pdf', url: 'Android/DOC-20261014-WA0012.pdf' },
-            { filename: 'DOC-20261014-WA0013.pdf', url: 'Android/DOC-20261014-WA0013.pdf' },
-            { filename: 'DOC-20261014-WA0014.pdf', url: 'Android/DOC-20261014-WA0014.pdf' },
-            { filename: 'DOC-20261014-WA0015.pdf', url: 'Android/DOC-20261014-WA0015.pdf' },
-            { filename: 'DOC-20261014-WA0016.pdf', url: 'Android/DOC-20261014-WA0016.pdf' },
-            { filename: 'DOC-20261014-WA0017.pdf', url: 'Android/DOC-20261014-WA0017.pdf' }
-          ]
-        },
-        {
-          id: 'applied',
-          name: 'Applied',
-          docs: [
-            { filename: 'Practical 1A.pdf', url: 'Applied/Practical 1A.pdf' },
-            { filename: 'Practical 1B.pdf', url: 'Applied/Practical 1B.pdf' },
-            { filename: 'Practical 2.pdf', url: 'Applied/Practical 2.pdf' },
-            { filename: 'Practical no 7.pdf', url: 'Applied/Practical no 7.pdf' },
-            { filename: 'Practical No.3.pdf', url: 'Applied/Practical No.3.pdf' },
-            { filename: 'Practical No.4.pdf', url: 'Applied/Practical No.4.pdf' },
-            { filename: 'Practical No.6B (1).pdf', url: 'Applied/Practical No.6B (1).pdf' },
-            { filename: 'Practical No.9.pdf', url: 'Applied/Practical No.9.pdf' }
-          ]
-        },
-        {
-          id: 'data-visualization',
-          name: 'Data Visualization',
-          docs: [
-            { filename: 'Data pp (1).pdf', url: 'Data Visualization/Data pp (1).pdf' },
-            { filename: 'Data Visualization Practical 7.pdf', url: 'Data Visualization/Data Visualization Practical 7.pdf' },
-            { filename: 'DataVisualization Practical No.1.pdf', url: 'Data Visualization/DataVisualization Practical No.1.pdf' },
-            { filename: 'DataVisualization Practical No.3.pdf', url: 'Data Visualization/DataVisualization Practical No.3.pdf' },
-            { filename: 'DV Practical 6.pdf', url: 'Data Visualization/DV Practical 6.pdf' },
-            { filename: 'DV Practical No.10.pdf', url: 'Data Visualization/DV Practical No.10.pdf' },
-            { filename: 'DV Practical No.11.pdf', url: 'Data Visualization/DV Practical No.11.pdf' },
-            { filename: 'DV Practical No.8.pdf', url: 'Data Visualization/DV Practical No.8.pdf' },
-            { filename: 'Practical 4 DV.pdf', url: 'Data Visualization/Practical 4 DV.pdf' }
-          ]
-        },
-        {
-          id: 'dot-net',
-          name: 'Dot Net',
-          docs: [
-            { filename: 'practical 1c.pdf', url: 'Dot Net/practical 1c.pdf' },
-            { filename: 'practical no 1.pdf', url: 'Dot Net/practical no 1.pdf' },
-            { filename: 'Practical No.2.pdf', url: 'Dot Net/Practical No.2.pdf' },
-            { filename: 'Practical No.3A.pdf', url: 'Dot Net/Practical No.3A.pdf' },
-            { filename: 'Practical No.3B.pdf', url: 'Dot Net/Practical No.3B.pdf' },
-            { filename: 'Practical No.4A.pdf', url: 'Dot Net/Practical No.4A.pdf' },
-            { filename: 'Practical No.4B.pdf', url: 'Dot Net/Practical No.4B.pdf' },
-            { filename: 'Practical No.4C.pdf', url: 'Dot Net/Practical No.4C.pdf' },
-            { filename: 'Practical No.5A.pdf', url: 'Dot Net/Practical No.5A.pdf' },
-            { filename: 'Practical No.5B.pdf', url: 'Dot Net/Practical No.5B.pdf' },
-            { filename: 'Practical No.6A.pdf', url: 'Dot Net/Practical No.6A.pdf' },
-            { filename: 'Practical No.6B.pdf', url: 'Dot Net/Practical No.6B.pdf' },
-            { filename: 'Practical No.7A.pdf', url: 'Dot Net/Practical No.7A.pdf' },
-            { filename: 'Practical No.7B.pdf', url: 'Dot Net/Practical No.7B.pdf' },
-            { filename: 'Practical No.8A.pdf', url: 'Dot Net/Practical No.8A.pdf' },
-            { filename: 'Practical No.8B.pdf', url: 'Dot Net/Practical No.8B.pdf' },
-            { filename: 'Practical No.9A.pdf', url: 'Dot Net/Practical No.9A.pdf' },
-            { filename: 'Practical No.9B.pdf', url: 'Dot Net/Practical No.9B.pdf' }
-          ]
-        },
-        {
-          id: 'full-stack',
-          name: 'Full Stack',
-          docs: [
-            { filename: 'downloadfile(9).PDF', url: 'Full Stack/downloadfile(9).PDF' },
-            { filename: 'Full Stack Practical No.2 06-08-2026.pdf', url: 'Full Stack/Full Stack Practical No.2 06-08-2026.pdf' },
-            { filename: 'Full Stack Practical No.3(D,E,F).pdf', url: 'Full Stack/Full Stack Practical No.3(D,E,F).pdf' },
-            { filename: 'Full Stack Practical No.4.pdf', url: 'Full Stack/Full Stack Practical No.4.pdf' },
-            { filename: 'full stcak 8 (1).pdf', url: 'Full Stack/full stcak 8 (1).pdf' },
-            { filename: 'full stcak 8.pdf', url: 'Full Stack/full stcak 8.pdf' },
-            { filename: 'FullStack 15-07-2026.pdf', url: 'Full Stack/FullStack 15-07-2026.pdf' },
-            { filename: 'FullStack Practical No.5 (1).pdf', url: 'Full Stack/FullStack Practical No.5 (1).pdf' },
-            { filename: 'FullStack Practical No.6 (1).pdf', url: 'Full Stack/FullStack Practical No.6 (1).pdf' },
-            { filename: 'FullStack Practical No.7.pdf', url: 'Full Stack/FullStack Practical No.7.pdf' }
-          ]
-        },
-        {
-          id: 'iot',
-          name: 'IOT',
-          docs: [
-            { filename: 'IOT Module 1.PDF', url: 'IOT/IOT Module 1.PDF' },
-            { filename: 'IOT Module 2.PDF', url: 'IOT/IOT Module 2.PDF' }
-          ]
-        }
+      const allDocs = [
+        { filename: 'AI_ML.pdf', url: 'AI_ML.pdf' },
+        { filename: 'Android.pdf', url: 'Android.pdf' },
+        { filename: 'Applied_Business.pdf', url: 'Applied_Business.pdf' },
+        { filename: 'Data Visuliazation.pdf', url: 'Data%20Visuliazation.pdf' },
+        { filename: 'Dot Net.pdf', url: 'Dot%20Net.pdf' },
+        { filename: 'Full-Stack.pdf', url: 'Full-Stack.pdf' },
+        { filename: 'IOT.pdf', url: 'IOT.pdf' }
       ];
-
-      const allDocs = practicals.flatMap((practical) => practical.docs.map((doc) => ({
-        ...doc,
-        practicalId: practical.id,
-        practicalName: practical.name,
-        title: doc.filename.replace(/\.[^/.]+$/, '')
-      })));
-
       const INDEX_DB_NAME = 'practical-pdf-library-index';
-      const INDEX_DB_VERSION = 2;
-      const INDEX_VERSION = 1;
-      const MANIFEST_SIGNATURE = allDocs.map((doc) => `${doc.url}|${doc.filename}|${doc.practicalName}`).join('|');
+      const INDEX_DB_VERSION = 3;
+      const INDEX_VERSION = 2;
+      const MANIFEST_SIGNATURE = allDocs.map((doc) => `${doc.url}|${doc.filename}`).join('|');
       const HISTORY_APP_KEY = 'practical-pdf-library';
 
       const state = {
         currentView: 'home',
-        currentPracticalId: null,
         currentDoc: null,
         pdfSearchToken: 0,
-        pdfTextCache: new Map(),
-        zipInProgress: false,
-        zipCurrentPracticalId: null,
-        pdfIndexLoading: false,
-        pdfIndexReady: false,
         pdfIndexRecords: new Map(),
-        pdfIndexToken: 0,
+        pdfIndexReady: false,
+        pdfIndexValidated: false,
+        pdfIndexLoadingPromise: null,
+        pdfIndexRefreshPromise: null,
         textSearchTimer: null
       };
 
       const elements = {
-        folderGrid: document.getElementById('folderGrid'),
+        pdfGrid: document.getElementById('pdfGrid'),
         totalDocCount: document.getElementById('totalDocCount'),
-        searchPanel: document.querySelector('.search-panel'),
-        homeSearchSlot: document.getElementById('homeSearchSlot'),
-        practicalSearchSlot: document.getElementById('practicalSearchSlot'),
         pdfTextSearch: document.getElementById('pdfTextSearch'),
         clearPdfTextSearch: document.getElementById('clearPdfTextSearch'),
         pdfSearchStatus: document.getElementById('pdfSearchStatus'),
         pdfSearchResults: document.getElementById('pdfSearchResults'),
-        practicalView: document.getElementById('practicalView'),
-        practicalTitle: document.getElementById('practicalTitle'),
-        practicalList: document.getElementById('practicalList'),
+        homeView: document.getElementById('homeView'),
         viewerView: document.getElementById('viewerView'),
         viewerTitle: document.getElementById('viewerTitle'),
         pdfFrame: document.getElementById('pdfFrame'),
         viewerError: document.getElementById('viewerError'),
         openInNewTab: document.getElementById('openInNewTab'),
         downloadCurrentPdf: document.getElementById('downloadCurrentPdf'),
-        viewerBack: document.getElementById('viewerBack'),
-        backToHome: document.getElementById('backToHome')
+        viewerBack: document.getElementById('viewerBack')
       };
 
       function escapeHtml(value) {
@@ -686,7 +513,7 @@
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
-          .replace(/\"/g, '&quot;')
+          .replace(/"/g, '&quot;')
           .replace(/'/g, '&#039;');
       }
 
@@ -698,27 +525,29 @@
         return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
       }
 
+      function showStatus(message, type = '') {
+        elements.pdfSearchStatus.textContent = message;
+        elements.pdfSearchStatus.className = `status ${type}`.trim();
+      }
+
       function isAppRoute(route) {
-        return Boolean(route && route.app === HISTORY_APP_KEY && ['home', 'practical', 'viewer'].includes(route.view));
+        return Boolean(route && route.app === HISTORY_APP_KEY && ['home', 'viewer'].includes(route.view));
       }
 
       function createRoute(view, values = {}) {
         return {
           app: HISTORY_APP_KEY,
           view,
-          practicalId: values.practicalId || null,
           docUrl: values.docUrl || null,
+          pageNumber: values.pageNumber || 1,
           query: values.query || ''
         };
       }
 
       function currentRoute() {
         const route = window.history.state;
-        if (isAppRoute(route)) {
-          return { ...route };
-        }
+        if (isAppRoute(route)) return { ...route };
         return createRoute(state.currentView, {
-          practicalId: state.currentPracticalId,
           docUrl: state.currentDoc && state.currentDoc.url,
           query: elements.pdfTextSearch.value
         });
@@ -727,44 +556,22 @@
       function saveSearchQuery(query) {
         const route = currentRoute();
         route.query = query;
-        if (isAppRoute(window.history.state)) {
-          window.history.replaceState(route, '');
-        }
+        if (isAppRoute(window.history.state)) window.history.replaceState(route, '');
       }
 
       function navigateToRoute(route, replace = false) {
-        if (replace) {
-          window.history.replaceState(route, '');
-        } else {
-          window.history.pushState(route, '');
-        }
+        if (replace) window.history.replaceState(route, '');
+        else window.history.pushState(route, '');
         renderRoute(route);
       }
 
-      function navigateToPractical(practicalId) {
-        const parent = currentRoute();
-        const route = createRoute('practical', {
-          practicalId,
-          query: elements.pdfTextSearch.value
-        });
-        route.parent = parent;
-        navigateToRoute(route);
-      }
-
-      function navigateToDocument(docUrl) {
-        const parent = currentRoute();
-        const doc = allDocs.find((item) => item.url === docUrl);
-        if (!doc) {
+      function navigateToDocument(docUrl, pageNumber = 1) {
+        if (!allDocs.some((doc) => doc.url === docUrl)) {
           showStatus('The selected PDF could not be found.', 'error');
           return;
         }
-
-        const route = createRoute('viewer', {
-          practicalId: doc.practicalId,
-          docUrl,
-          query: elements.pdfTextSearch.value
-        });
-        route.parent = parent;
+        const route = createRoute('viewer', { docUrl, pageNumber, query: elements.pdfTextSearch.value });
+        route.parent = currentRoute();
         navigateToRoute(route);
       }
 
@@ -774,31 +581,21 @@
           window.history.back();
           return;
         }
-
         navigateToRoute(fallbackRoute, true);
       }
 
-      function restorePdfSearch(query, practicalId) {
+      function restorePdfSearch(query) {
         clearTimeout(state.textSearchTimer);
         state.pdfSearchToken += 1;
         elements.pdfTextSearch.value = query;
         elements.pdfSearchResults.innerHTML = '';
         showStatus('', '');
-
-        if (query.trim().length >= 2) {
-          performPdfTextSearch(query, practicalId);
-        }
+        if (query.trim().length >= 1) performPdfTextSearch(query);
       }
 
       function showView(name) {
         state.currentView = name;
-        if (name === 'home') {
-          elements.homeSearchSlot.appendChild(elements.searchPanel);
-        } else if (name === 'practical') {
-          elements.practicalSearchSlot.appendChild(elements.searchPanel);
-        }
-        document.getElementById('homeView').classList.toggle('active', name === 'home');
-        elements.practicalView.classList.toggle('active', name === 'practical');
+        elements.homeView.classList.toggle('active', name === 'home');
         elements.viewerView.classList.toggle('active', name === 'viewer');
       }
 
@@ -807,121 +604,55 @@
           route = createRoute('home');
           window.history.replaceState(route, '');
         }
-
         if (route.view === 'home') {
           state.currentDoc = null;
-          state.currentPracticalId = null;
           renderHome();
           showView('home');
-          restorePdfSearch(route.query || '', null);
+          restorePdfSearch(route.query || '');
           return;
         }
-
-        if (route.view === 'practical') {
-          const practical = practicals.find((item) => item.id === route.practicalId);
-          if (!practical) {
-            const homeRoute = createRoute('home', { query: route.query });
-            window.history.replaceState(homeRoute, '');
-            renderRoute(homeRoute);
-            return;
-          }
-
-          state.currentDoc = null;
-          state.currentPracticalId = practical.id;
-          renderPractical(practical.id);
-          showView('practical');
-          restorePdfSearch(route.query || '', practical.id);
-          return;
-        }
-
         const doc = allDocs.find((item) => item.url === route.docUrl);
         if (!doc) {
-          const fallback = isAppRoute(route.parent)
-            ? route.parent
-            : createRoute('home', { query: route.query });
+          const fallback = isAppRoute(route.parent) ? route.parent : createRoute('home', { query: route.query });
           window.history.replaceState(fallback, '');
           renderRoute(fallback);
           return;
         }
-
-        openDocument(doc.url);
+        openDocument(doc.url, route.pageNumber);
       }
 
       function renderHome() {
         elements.totalDocCount.textContent = String(allDocs.length);
-        elements.folderGrid.innerHTML = practicals.map((practical) => `
-          <article class="folder-card">
-            <button class="folder-main" type="button" data-practical-id="${practical.id}" data-action="open-practical" aria-label="Open ${escapeHtml(practical.name)} practicals">
-              <span class="folder-icon" aria-hidden="true">▣</span>
-              <span class="folder-meta">
-                <h3>${escapeHtml(practical.name)}</h3>
-                <p>${practical.docs.length} PDFs</p>
-              </span>
-            </button>
-            <div class="folder-actions">
-              <button class="primary-btn" type="button" data-practical-id="${practical.id}" data-action="open-practical">View</button>
-              <button class="secondary-btn" type="button" data-practical-id="${practical.id}" data-action="download-practical">Download All</button>
+        elements.pdfGrid.innerHTML = allDocs.map((doc) => `
+          <article class="pdf-card">
+            <h3><button class="doc-title-button" type="button" data-action="view-doc" data-doc-url="${escapeHtml(doc.url)}">${escapeHtml(doc.filename)}</button></h3>
+            <p class="doc-meta">PDF document</p>
+            <div class="pdf-card-actions">
+              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(doc.url)}">View PDF</button>
+              <button class="secondary-btn" type="button" data-action="download-doc" data-doc-url="${escapeHtml(doc.url)}" data-doc-name="${escapeHtml(doc.filename)}">Download</button>
             </div>
           </article>
         `).join('');
       }
 
-      function renderPractical(practicalId) {
-        const practical = practicals.find((item) => item.id === practicalId);
-        if (!practical) {
-          elements.practicalList.innerHTML = '<div class="empty-state">This practical is unavailable.</div>';
-          return;
-        }
-
-        state.currentPracticalId = practicalId;
-        elements.practicalTitle.textContent = practical.name;
-        if (!practical.docs.length) {
-          elements.practicalList.innerHTML = '<div class="empty-state">No PDFs are available in this practical.</div>';
-          return;
-        }
-
-        elements.practicalList.innerHTML = practical.docs.map((doc) => `
-          <div class="doc-row">
-            <div>
-              <p class="doc-title">${escapeHtml(doc.filename)}</p>
-              <div class="doc-meta">${escapeHtml(practical.name)}</div>
-            </div>
-            <div class="doc-actions">
-              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(doc.url)}">View</button>
-              <button class="secondary-btn" type="button" data-action="download-doc" data-doc-url="${escapeHtml(doc.url)}" data-doc-name="${escapeHtml(doc.filename)}">Download</button>
-            </div>
-          </div>
-        `).join('');
-      }
-
-      function openDocument(docUrl) {
+      function openDocument(docUrl, pageNumber = 1) {
         const doc = allDocs.find((item) => item.url === docUrl);
         if (!doc) {
           showStatus('The selected PDF could not be found.', 'error');
           return;
         }
-
         state.currentDoc = doc;
-        const practicalId = doc.practicalId;
-        state.currentPracticalId = practicalId;
-
         elements.viewerTitle.textContent = doc.filename;
-        elements.pdfFrame.src = doc.url;
+        elements.pdfFrame.src = pageNumber > 1 ? `${doc.url}#page=${pageNumber}` : doc.url;
         elements.pdfFrame.style.display = 'block';
         elements.viewerError.style.display = 'none';
         showView('viewer');
-        const parent = window.history.state && window.history.state.parent;
-        const parentPractical = isAppRoute(parent) && parent.view === 'practical'
-          ? practicals.find((item) => item.id === parent.practicalId)
-          : null;
-        elements.viewerBack.textContent = parentPractical ? `Back to ${parentPractical.name}` : 'Back to Home';
       }
 
       function downloadFile(url, fileName) {
         const anchor = document.createElement('a');
         anchor.href = url;
         anchor.download = fileName;
-        anchor.target = '_blank';
         anchor.rel = 'noopener noreferrer';
         document.body.appendChild(anchor);
         anchor.click();
@@ -932,83 +663,8 @@
         try {
           downloadFile(docUrl, fileName);
         } catch (error) {
+          console.error('PDF download failed:', error);
           showStatus('Unable to download the PDF. Please try again.', 'error');
-        }
-      }
-
-      function showStatus(message, type = '') {
-        const target = elements.pdfSearchStatus;
-        target.textContent = message;
-        target.className = `status ${type}`.trim();
-      }
-
-      async function fetchBlob(url) {
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) {
-          throw new Error(`Request failed: ${response.status}`);
-        }
-        return response.blob();
-      }
-
-      async function createPracticalZip(practicalId) {
-        if (!window.JSZip) {
-          showStatus('ZIP download requires JSZip. The CDN library did not load.', 'error');
-          return;
-        }
-
-        const practical = practicals.find((item) => item.id === practicalId);
-        if (!practical) {
-          showStatus('No practical found for zip creation.', 'error');
-          return;
-        }
-
-        if (state.zipInProgress) {
-          showStatus('A ZIP download is already being prepared. Please wait.', 'error');
-          return;
-        }
-
-        state.zipInProgress = true;
-        state.zipCurrentPracticalId = practicalId;
-        showStatus(`Preparing ZIP for ${practical.name}...`, 'success');
-
-        const zip = new JSZip();
-        const progressLabel = document.createElement('div');
-        progressLabel.className = 'status';
-        progressLabel.textContent = `0 / ${practical.docs.length} files added`;
-        elements.pdfSearchStatus.innerHTML = '';
-        elements.pdfSearchStatus.appendChild(progressLabel);
-
-        try {
-          for (let index = 0; index < practical.docs.length; index += 1) {
-            const doc = practical.docs[index];
-            try {
-              const blob = await fetchBlob(doc.url);
-              zip.file(doc.filename, blob);
-              progressLabel.textContent = `${index + 1} / ${practical.docs.length} files added`;
-            } catch (error) {
-              progressLabel.textContent = `${index + 1} / ${practical.docs.length} files added • some files were unavailable`;
-            }
-          }
-
-          const content = await zip.generateAsync({ type: 'blob' }, (metadata) => {
-            progressLabel.textContent = `Zipping ${metadata.percent.toFixed(0)}% • ${practical.docs.length} files`;
-          });
-
-          const fileName = `${practical.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '')}.zip`;
-          const objectUrl = URL.createObjectURL(content);
-          const anchor = document.createElement('a');
-          anchor.href = objectUrl;
-          anchor.download = fileName;
-          document.body.appendChild(anchor);
-          anchor.click();
-          anchor.remove();
-          setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
-          showStatus(`ZIP download for ${practical.name} is ready.`, 'success');
-        } catch (error) {
-          showStatus(`ZIP generation failed for ${practical.name}.`, 'error');
-        } finally {
-          state.zipInProgress = false;
-          state.zipCurrentPracticalId = null;
         }
       }
 
@@ -1018,403 +674,309 @@
             reject(new Error('IndexedDB is not available in this browser.'));
             return;
           }
-
           const request = window.indexedDB.open(INDEX_DB_NAME, INDEX_DB_VERSION);
           request.onupgradeneeded = (event) => {
             const db = event.target.result;
-            if (!db.objectStoreNames.contains('documents')) {
-              db.createObjectStore('documents', { keyPath: 'url' });
-            }
-            if (!db.objectStoreNames.contains('meta')) {
-              db.createObjectStore('meta', { keyPath: 'key' });
-            }
-
-            if (db.objectStoreNames.contains('documents') && db.objectStoreNames.contains('meta')) {
-              // Ensure the schema is fully present for older partial database states.
-            }
+            if (!db.objectStoreNames.contains('documents')) db.createObjectStore('documents', { keyPath: 'url' });
+            if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
           };
           request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error || new Error('Unable to open PDF index database.'));
+          request.onerror = () => reject(request.error || new Error('Unable to open the PDF index database.'));
         });
       }
 
-      function readMetaRecord(db) {
+      function readIndexData(db) {
         return new Promise((resolve, reject) => {
-          const tx = db.transaction('meta', 'readonly');
-          const request = tx.objectStore('meta').get('settings');
-          request.onsuccess = () => resolve(request.result || null);
-          request.onerror = () => reject(request.error || new Error('Failed to read PDF index metadata.'));
+          const tx = db.transaction(['documents', 'meta'], 'readonly');
+          const recordsRequest = tx.objectStore('documents').getAll();
+          const metaRequest = tx.objectStore('meta').get('settings');
+          let records;
+          let meta;
+          recordsRequest.onsuccess = () => { records = recordsRequest.result || []; };
+          metaRequest.onsuccess = () => { meta = metaRequest.result || null; };
+          tx.oncomplete = () => resolve({ records, meta });
+          tx.onerror = () => reject(tx.error || new Error('Failed to read the cached PDF text index.'));
+          tx.onabort = () => reject(tx.error || new Error('Reading the PDF text index was aborted.'));
         });
       }
 
-      function writeMetaRecord(db, payload) {
+      function writeIndexRecord(db, record) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('documents', 'readwrite');
+          tx.objectStore('documents').put(record);
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error || new Error('Failed to save a PDF text record.'));
+          tx.onabort = () => reject(tx.error || new Error('Saving a PDF text record was aborted.'));
+        });
+      }
+
+      function writeIndexMeta(db) {
         return new Promise((resolve, reject) => {
           const tx = db.transaction('meta', 'readwrite');
-          const request = tx.objectStore('meta').put({ key: 'settings', ...payload });
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error || new Error('Failed to save PDF index metadata.'));
+          tx.objectStore('meta').put({ key: 'settings', version: INDEX_VERSION, manifestSignature: MANIFEST_SIGNATURE, updatedAt: Date.now() });
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error || new Error('Failed to save PDF index metadata.'));
+          tx.onabort = () => reject(tx.error || new Error('Saving PDF index metadata was aborted.'));
         });
       }
 
-      function readAllIndexedRecords(db) {
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction('documents', 'readonly');
-          const request = tx.objectStore('documents').getAll();
-          request.onsuccess = () => resolve(request.result || []);
-          request.onerror = () => reject(request.error || new Error('Failed to read the cached PDF records.'));
-        });
-      }
-
-      function writeAllIndexedRecords(db, records) {
+      function clearIndexRecords(db) {
         return new Promise((resolve, reject) => {
           const tx = db.transaction('documents', 'readwrite');
-          const store = tx.objectStore('documents');
-          let completed = 0;
-          records.forEach((record) => {
-            const request = store.put(record);
-            request.onsuccess = () => {
-              completed += 1;
-              if (completed === records.length) {
-                resolve();
-              }
-            };
-            request.onerror = () => reject(request.error || new Error('Failed to write a cached PDF record.'));
-          });
-          if (!records.length) {
-            resolve();
-          }
+          tx.objectStore('documents').clear();
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error || new Error('Unable to reset the PDF text index.'));
+          tx.onabort = () => reject(tx.error || new Error('Resetting the PDF text index was aborted.'));
         });
       }
 
-      function clearIndexStore(db) {
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction('documents', 'readwrite');
-          const request = tx.objectStore('documents').clear();
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error || new Error('Unable to reset the PDF text index.'));
-        });
-      }
-
-      function extractPageTextFromPdf(page) {
-        return page.getTextContent().then((textContent) => {
-          const items = Array.isArray(textContent && textContent.items) ? textContent.items : [];
-          return items.map((item) => item && item.str ? item.str : '').join(' ').replace(/\s+/g, ' ').trim();
-        });
-      }
-
-      async function extractPdfDocumentText(doc, token) {
-        if (typeof window.pdfjsLib === 'undefined') {
-          throw new Error('PDF.js is not available.');
-        }
-
-        const pdf = await window.pdfjsLib.getDocument(doc.url).promise;
-        const pages = [];
-        let combinedText = '';
-
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-          if (token !== state.pdfIndexToken) {
-            return null;
-          }
-
-          const page = await pdf.getPage(pageNumber);
-          const pageText = await extractPageTextFromPdf(page);
-          if (pageText) {
-            const text = pageText.replace(/\s+/g, ' ').trim();
-            pages.push({ pageNumber, text });
-            combinedText += `${combinedText ? ' ' : ''}${text}`;
-          }
-        }
-
+      async function getPdfRevision(doc) {
+        const response = await fetch(doc.url, { method: 'HEAD', cache: 'no-cache' });
+        if (!response.ok) throw new Error(`Could not check ${doc.filename} for updates (HTTP ${response.status}).`);
         return {
-          url: doc.url,
-          filename: doc.filename,
-          practicalName: doc.practicalName,
-          text: combinedText,
-          pages,
-          indexedAt: Date.now()
+          available: true,
+          value: response.headers.get('etag')
+            || response.headers.get('last-modified')
+            || response.headers.get('content-length')
+            || null
         };
       }
 
-      async function ensurePdfIndexReady() {
-        if (state.pdfIndexLoading) {
-          return state.pdfIndexLoadingPromise;
+      async function extractPdfDocumentText(doc, revision) {
+        if (!window.pdfjsLib) throw new Error('PDF.js did not load.');
+        const pdf = await window.pdfjsLib.getDocument(doc.url).promise;
+        const pages = [];
+        try {
+          for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+            const page = await pdf.getPage(pageNumber);
+            const content = await page.getTextContent();
+            const text = content.items.map((item) => item && typeof item.str === 'string' ? item.str : '').join(' ').replace(/\s+/g, ' ').trim();
+            if (text) pages.push({ pageNumber, text });
+            page.cleanup();
+          }
+        } finally {
+          await pdf.destroy();
         }
+        return { url: doc.url, filename: doc.filename, revision, pages, status: pages.length ? 'indexed' : 'empty', indexedAt: Date.now() };
+      }
 
-        state.pdfIndexLoading = true;
-        state.pdfIndexReady = false;
+      async function refreshPdfIndex(db, cachedRecords, showProgress) {
+        const revisions = await Promise.all(allDocs.map(async (doc) => {
+          try {
+            return await getPdfRevision(doc);
+          } catch (error) {
+            console.warn(`Unable to check PDF revision for ${doc.filename}:`, error);
+            return { available: false, value: null };
+          }
+        }));
+        const docsToIndex = allDocs.filter((doc, index) => {
+          const cached = cachedRecords.get(doc.url);
+          return !cached || (revisions[index].available && cached.revision !== revisions[index].value);
+        });
+        let completed = 0;
+        let nextIndex = 0;
+        const processNext = async () => {
+          while (nextIndex < docsToIndex.length) {
+            const doc = docsToIndex[nextIndex++];
+            const docIndex = allDocs.indexOf(doc);
+            let record;
+            const revision = revisions[docIndex].available
+              ? revisions[docIndex].value
+              : cachedRecords.get(doc.url)?.revision ?? null;
+            try {
+              record = await extractPdfDocumentText(doc, revision);
+            } catch (error) {
+              console.warn(`Unable to index ${doc.filename}:`, error);
+              record = { url: doc.url, filename: doc.filename, revision, pages: [], status: 'error', error: error.message, indexedAt: Date.now() };
+            }
+            await writeIndexRecord(db, record);
+            state.pdfIndexRecords.set(doc.url, record);
+            completed += 1;
+            if (showProgress) showStatus(`Indexing PDFs: ${completed}/${docsToIndex.length} updated.`, '');
+          }
+        };
+        await Promise.all([processNext(), processNext()]);
+        await writeIndexMeta(db);
+        state.pdfIndexReady = true;
+        if (showProgress) {
+          const unsearchable = [...state.pdfIndexRecords.values()].filter((record) => record.status !== 'indexed').length;
+          showStatus(unsearchable
+            ? `Index ready. ${unsearchable} PDF${unsearchable === 1 ? '' : 's'} had no searchable text or could not be read.`
+            : `Index ready for all ${allDocs.length} PDFs.`, unsearchable ? '' : 'success');
+        }
+        state.pdfIndexValidated = true;
+        return docsToIndex.length;
+      }
+
+      async function ensurePdfIndexReady() {
+        if (state.pdfIndexReady && state.pdfIndexValidated) return state.pdfIndexRecords;
+        if (state.pdfIndexLoadingPromise) return state.pdfIndexLoadingPromise;
+        if (state.pdfIndexRefreshPromise) return state.pdfIndexRecords;
         state.pdfIndexLoadingPromise = (async () => {
-          const token = ++state.pdfIndexToken;
           let db;
-
           try {
             db = await openPdfDatabase();
-            const meta = await readMetaRecord(db);
-            const cached = await readAllIndexedRecords(db);
-
-            if (meta && meta.version === INDEX_VERSION && meta.manifestSignature === MANIFEST_SIGNATURE && cached.length > 0) {
-              state.pdfIndexRecords = new Map(cached.map((record) => [record.url, record]));
-              state.pdfIndexReady = true;
-              state.pdfIndexLoading = false;
-              return cached;
+            const { records, meta } = await readIndexData(db);
+            const manifestMatches = meta && meta.version === INDEX_VERSION && meta.manifestSignature === MANIFEST_SIGNATURE;
+            if (!manifestMatches) await clearIndexRecords(db);
+            const validUrls = new Set(allDocs.map((doc) => doc.url));
+            const cachedRecords = manifestMatches ? records.filter((record) => validUrls.has(record.url)) : [];
+            state.pdfIndexRecords = new Map(cachedRecords.map((record) => [record.url, record]));
+            const hasCompleteCache = allDocs.every((doc) => state.pdfIndexRecords.has(doc.url));
+            state.pdfIndexReady = hasCompleteCache;
+            const refreshPromise = refreshPdfIndex(db, state.pdfIndexRecords, !hasCompleteCache);
+            if (hasCompleteCache) {
+              state.pdfIndexRefreshPromise = refreshPromise
+                .then((updatedCount) => {
+                  const query = elements.pdfTextSearch.value.trim();
+                  if (updatedCount && query.length >= 1) performPdfTextSearch(query, true);
+                })
+                .catch((error) => {
+                  console.error('PDF index update failed:', error);
+                  showStatus('Could not check for updated PDFs. The saved index is still available.', 'error');
+                })
+                .finally(() => {
+                  db.close();
+                  state.pdfIndexRefreshPromise = null;
+                });
+              return state.pdfIndexRecords;
             }
-
-            if (meta && meta.version === INDEX_VERSION && meta.manifestSignature === MANIFEST_SIGNATURE && cached.length === 0) {
-              showStatus('Cached index is empty. Rebuilding PDF text index...', '');
-            }
-
-            const records = [];
-            const batchSize = 5;
-
-            for (let start = 0; start < allDocs.length; start += batchSize) {
-              if (token !== state.pdfIndexToken) {
-                return [];
-              }
-
-              const batch = allDocs.slice(start, start + batchSize);
-              const batchResults = await Promise.all(batch.map(async (doc) => {
-                try {
-                  return await extractPdfDocumentText(doc, token);
-                } catch (error) {
-                  console.warn(`Unable to extract text from ${doc.filename}:`, error);
-                  return null;
-                }
-              }));
-
-              batchResults.forEach((record) => {
-                if (record && record.text) {
-                  records.push(record);
-                }
-              });
-
-              const completedCount = Math.min(start + batch.length, allDocs.length);
-              showStatus(`Indexing ${completedCount}/${allDocs.length} PDFs...`, '');
-            }
-
-            if (token !== state.pdfIndexToken) {
-              return [];
-            }
-
-            await clearIndexStore(db);
-            await writeAllIndexedRecords(db, records);
-            await writeMetaRecord(db, {
-              version: INDEX_VERSION,
-              manifestSignature: MANIFEST_SIGNATURE,
-              indexedAt: Date.now(),
-              total: records.length
-            });
-
-            state.pdfIndexRecords = new Map(records.map((record) => [record.url, record]));
-            state.pdfIndexReady = true;
-            showStatus(`Indexed ${records.length}/${allDocs.length} PDFs successfully.`, 'success');
-            return records;
+            await refreshPromise;
+            return state.pdfIndexRecords;
           } catch (error) {
-            console.error('PDF index build failed:', error);
-            showStatus('PDF indexing could not complete. Search will continue with available cached data.', 'error');
-            state.pdfIndexReady = false;
-            return [];
+            console.error('PDF index preparation failed:', error);
+            state.pdfIndexReady = state.pdfIndexRecords.size > 0;
+            showStatus('The PDF text index could not be prepared. Check your connection and try again.', 'error');
+            throw error;
           } finally {
-            state.pdfIndexLoading = false;
-            delete state.pdfIndexLoadingPromise;
-            if (db) {
-              db.close();
-            }
+            if (!state.pdfIndexRefreshPromise && db) db.close();
+            state.pdfIndexLoadingPromise = null;
           }
         })();
-
         return state.pdfIndexLoadingPromise;
       }
 
       function buildSnippetText(text, query) {
         const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
-        if (!cleaned) {
-          return 'No matching text was found on this page.';
-        }
-
-        const queryTerms = normalizeText(query).split(/\s+/).filter(Boolean);
-        if (!queryTerms.length) {
-          return cleaned.slice(0, 200);
-        }
-
+        if (!cleaned) return 'No matching text was found on this page.';
+        const terms = [...new Set(normalizeText(query).split(/\s+/).filter(Boolean))];
         const lower = cleaned.toLowerCase();
-        let bestIndex = -1;
-        for (const term of queryTerms) {
-          const idx = lower.indexOf(term);
-          if (idx !== -1 && (bestIndex === -1 || idx < bestIndex)) {
-            bestIndex = idx;
-          }
+        let matchIndex = lower.indexOf(normalizeText(query));
+        if (matchIndex < 0) {
+          matchIndex = terms.reduce((best, term) => {
+            const index = lower.indexOf(term);
+            return index >= 0 && (best < 0 || index < best) ? index : best;
+          }, -1);
         }
-
-        if (bestIndex === -1) {
-          return cleaned.slice(0, 200);
-        }
-
-        const start = Math.max(0, bestIndex - 90);
+        const start = Math.max(0, (matchIndex < 0 ? 0 : matchIndex) - 90);
         const end = Math.min(cleaned.length, start + 220);
-        const snippet = cleaned.slice(start, end).trim();
-        const safeSnippet = escapeHtml(snippet);
-        let highlighted = safeSnippet;
-        queryTerms.forEach((term) => {
-          const regex = new RegExp(escapeRegex(term), 'gi');
-          highlighted = highlighted.replace(regex, (match) => `<mark>${match}</mark>`);
+        let snippet = escapeHtml(cleaned.slice(start, end).trim());
+        if (start > 0) snippet = `…${snippet}`;
+        if (end < cleaned.length) snippet = `${snippet}…`;
+        terms.sort((a, b) => b.length - a.length).forEach((term) => {
+          const pattern = /^[a-z0-9]+$/i.test(term)
+            ? `\\b${escapeRegex(term)}\\b`
+            : escapeRegex(term);
+          snippet = snippet.replace(new RegExp(pattern, 'gi'), '<mark>$&</mark>');
         });
-        return highlighted;
+        return snippet;
       }
 
-      function searchCachedPdfIndex(query, practicalId = null) {
+      function countOccurrences(text, term) {
+        return term ? text.split(term).length - 1 : 0;
+      }
+
+      function searchCachedPdfIndex(query) {
         const normalizedQuery = normalizeText(query);
-        const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-        if (!normalizedQuery || terms.length === 0) {
-          return [];
-        }
-
-        const practical = practicals.find((item) => item.id === practicalId);
-        const practicalUrls = practical ? new Set(practical.docs.map((doc) => doc.url)) : null;
+        const terms = [...new Set(normalizedQuery.split(/\s+/).filter(Boolean))];
+        if (!normalizedQuery || !terms.length) return [];
         const matches = [];
-
         for (const record of state.pdfIndexRecords.values()) {
-          if (!record || !Array.isArray(record.pages)) {
-            continue;
-          }
-          if (practicalUrls && !practicalUrls.has(record.url)) {
-            continue;
-          }
-
+          if (!record || record.status !== 'indexed' || !Array.isArray(record.pages)) continue;
           let bestMatch = null;
           for (const page of record.pages) {
-            const pageText = normalizeText(page.text || '');
-            if (!pageText) {
-              continue;
-            }
-
-            const phraseMatch = normalizedQuery.includes(' ') ? pageText.includes(normalizedQuery) : false;
-            const allTermsMatch = terms.every((term) => pageText.includes(term));
-            const anyTermMatch = terms.some((term) => pageText.includes(term));
-
-            if (!phraseMatch && !allTermsMatch && !anyTermMatch) {
-              continue;
-            }
-
-            const score = (phraseMatch ? 4 : 0) + (allTermsMatch ? 3 : 0) + (terms.length === 1 ? pageText.split(terms[0]).length - 1 : 0);
-            const snippet = buildSnippetText(page.text, normalizedQuery);
-
+            const pageText = normalizeText(page.text);
+            const phraseCount = countOccurrences(pageText, normalizedQuery);
+            const termCounts = terms.map((term) => countOccurrences(pageText, term));
+            const allTermsMatch = termCounts.every((count) => count > 0);
+            const anyTermsMatch = termCounts.some((count) => count > 0);
+            if (!anyTermsMatch) continue;
+            const score = (phraseCount ? 100 : 0) + (allTermsMatch ? 25 : 0)
+              + termCounts.reduce((sum, count) => sum + Math.min(count, 10), 0);
             if (!bestMatch || score > bestMatch.score) {
-              bestMatch = {
-                score,
-                pageNumber: page.pageNumber,
-                snippet
-              };
+              bestMatch = { score, pageNumber: page.pageNumber, snippet: buildSnippetText(page.text, query) };
             }
           }
-
-          if (bestMatch) {
-            matches.push({
-              filename: record.filename,
-              practicalName: record.practicalName,
-              url: record.url,
-              pageNumber: bestMatch.pageNumber,
-              snippet: bestMatch.snippet,
-              score: bestMatch.score
-            });
-          }
+          if (bestMatch) matches.push({ filename: record.filename, url: record.url, ...bestMatch });
         }
-
-        matches.sort((a, b) => b.score - a.score);
-        return matches;
+        return matches.sort((a, b) => b.score - a.score || a.filename.localeCompare(b.filename));
       }
 
       function renderPdfTextSearchResults(matches) {
         if (!matches.length) {
-          elements.pdfSearchResults.innerHTML = '<div class="empty-state">No PDF text matches were found. This may mean the text is not selectable or the file is image-only.</div>';
+          elements.pdfSearchResults.innerHTML = '<div class="empty-state">No searchable text matched. Scanned or image-only PDFs need OCR to become searchable.</div>';
           return;
         }
-
         elements.pdfSearchResults.innerHTML = matches.map((match) => `
           <article class="result-card">
             <div>
-              <p class="result-summary">${escapeHtml(match.filename)}</p>
-              <p class="match-snippet">${escapeHtml(match.practicalName)} • Page ${match.pageNumber} • ${match.snippet}</p>
+              <p class="result-summary"><button class="doc-title-button" type="button" data-action="view-doc" data-doc-url="${escapeHtml(match.url)}" data-page-number="${match.pageNumber}">${escapeHtml(match.filename)}</button></p>
+              <p class="match-snippet">Page ${match.pageNumber} • ${match.snippet}</p>
             </div>
             <div class="result-actions">
-              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(match.url)}">View</button>
+              <button class="primary-btn" type="button" data-action="view-doc" data-doc-url="${escapeHtml(match.url)}" data-page-number="${match.pageNumber}">View page</button>
               <button class="secondary-btn" type="button" data-action="download-doc" data-doc-url="${escapeHtml(match.url)}" data-doc-name="${escapeHtml(match.filename)}">Download</button>
             </div>
           </article>
         `).join('');
       }
 
-      async function performPdfTextSearch(query, practicalId = null) {
+      async function performPdfTextSearch(query, indexAlreadyEnsured = false) {
         const searchQuery = query.trim();
-        if (!searchQuery || searchQuery.length < 2) {
+        if (!searchQuery) {
           elements.pdfSearchResults.innerHTML = '';
-          showStatus('Enter at least 2 characters to search within PDFs.', '');
+          showStatus('Enter a word, phrase, or sentence to search within PDFs.', '');
           return;
         }
-
         const currentToken = ++state.pdfSearchToken;
         try {
-          showStatus('Preparing cached PDF text search...', '');
-          await ensurePdfIndexReady();
-          if (currentToken !== state.pdfSearchToken) {
+          if (!indexAlreadyEnsured) {
+            const hasCachedIndex = allDocs.every((doc) => state.pdfIndexRecords.has(doc.url));
+            if (!hasCachedIndex) showStatus('Building the searchable text index. This is only needed once per PDF version...', '');
+            await ensurePdfIndexReady();
+          }
+          if (currentToken !== state.pdfSearchToken) return;
+          if (!state.pdfIndexReady && !state.pdfIndexRecords.size) {
+            elements.pdfSearchResults.innerHTML = '<div class="empty-state">The PDF text index is not available yet. Check the indexing status and try again.</div>';
             return;
           }
-
-          if (!state.pdfIndexReady || state.pdfIndexRecords.size === 0) {
-            elements.pdfSearchResults.innerHTML = '<div class="empty-state">The PDF text index is not ready yet. Please try again shortly.</div>';
-            showStatus('The PDF text index is still being prepared.', '');
-            return;
-          }
-
-          const matches = searchCachedPdfIndex(searchQuery, practicalId);
-          if (currentToken !== state.pdfSearchToken) {
-            return;
-          }
-
-          if (!matches.length) {
-            elements.pdfSearchResults.innerHTML = '<div class="empty-state">No PDF text matches were found. This may mean the text is not selectable or the file is image-only.</div>';
-            showStatus('No PDF text matches found. Scanned or image-only PDFs may need OCR before they can be searched.', '');
-            return;
-          }
-
+          const matches = searchCachedPdfIndex(searchQuery);
+          if (currentToken !== state.pdfSearchToken) return;
           renderPdfTextSearchResults(matches);
-          showStatus(`Found ${matches.length} matching PDF document${matches.length === 1 ? '' : 's'}.`, 'success');
+          if (matches.length) {
+            const issues = [...state.pdfIndexRecords.values()].filter((record) => record.status !== 'indexed').length;
+            showStatus(`Found ${matches.length} matching PDF${matches.length === 1 ? '' : 's'}${issues ? ` • ${issues} PDF${issues === 1 ? '' : 's'} could not be searched` : ''}.`, 'success');
+          } else {
+            const errors = [...state.pdfIndexRecords.values()].filter((record) => record.status === 'error').length;
+            showStatus(errors ? `No matches found. ${errors} PDF${errors === 1 ? '' : 's'} could not be indexed.` : 'No matching selectable text was found. Scanned PDFs may need OCR.', '');
+          }
         } catch (error) {
-          console.error('PDF search error:', error);
-          elements.pdfSearchResults.innerHTML = '<div class="empty-state">Unable to search the cached PDF text index. Please try again.</div>';
-          showStatus('PDF text search failed. Please try again.', 'error');
+          console.error('PDF search failed:', error);
+          if (currentToken === state.pdfSearchToken) {
+            elements.pdfSearchResults.innerHTML = '<div class="empty-state">Unable to search PDF text. Please check your connection and try again.</div>';
+            showStatus('PDF text search failed.', 'error');
+          }
         }
       }
 
       function attachEventHandlers() {
         document.addEventListener('click', (event) => {
           const button = event.target.closest('[data-action]');
-          if (!button) {
-            return;
-          }
-
-          const action = button.dataset.action;
-
-          if (action === 'open-practical') {
-            const practicalId = button.dataset.practicalId;
-            navigateToPractical(practicalId);
-            return;
-          }
-
-          if (action === 'download-practical') {
-            const practicalId = button.dataset.practicalId;
-            createPracticalZip(practicalId);
-            return;
-          }
-
-          if (action === 'view-doc') {
-            const docUrl = button.dataset.docUrl;
-            navigateToDocument(docUrl);
-            return;
-          }
-
-          if (action === 'download-doc') {
-            const docUrl = button.dataset.docUrl;
-            const docName = button.dataset.docName || decodeURIComponent(docUrl.split('/').pop());
-            handleDocDownload(docUrl, docName);
+          if (!button) return;
+          if (button.dataset.action === 'view-doc') {
+            navigateToDocument(button.dataset.docUrl, Number(button.dataset.pageNumber) || 1);
+          } else if (button.dataset.action === 'download-doc') {
+            handleDocDownload(button.dataset.docUrl, button.dataset.docName || 'document.pdf');
           }
         });
 
@@ -1429,26 +991,15 @@
 
         elements.pdfTextSearch.addEventListener('input', (event) => {
           const query = event.target.value;
-          const trimmed = query.trim();
-
           clearTimeout(state.textSearchTimer);
           state.pdfSearchToken += 1;
           saveSearchQuery(query);
-
-          if (!trimmed) {
+          if (!query.trim()) {
             elements.pdfSearchResults.innerHTML = '';
             showStatus('', '');
             return;
           }
-
-          const practicalId = state.currentView === 'practical' ? state.currentPracticalId : null;
-          state.textSearchTimer = setTimeout(() => {
-            performPdfTextSearch(trimmed, practicalId);
-          }, 250);
-        });
-
-        elements.backToHome.addEventListener('click', () => {
-          goBackWithinApp(createRoute('home', { query: elements.pdfTextSearch.value }));
+          state.textSearchTimer = setTimeout(() => performPdfTextSearch(query), 250);
         });
 
         elements.viewerBack.addEventListener('click', () => {
@@ -1460,9 +1011,8 @@
         });
 
         window.addEventListener('popstate', (event) => {
-          if (isAppRoute(event.state)) {
-            renderRoute(event.state);
-          } else {
+          if (isAppRoute(event.state)) renderRoute(event.state);
+          else {
             const homeRoute = createRoute('home');
             window.history.replaceState(homeRoute, '');
             renderRoute(homeRoute);
@@ -1470,17 +1020,11 @@
         });
 
         elements.openInNewTab.addEventListener('click', () => {
-          if (state.currentDoc) {
-            window.open(state.currentDoc.url, '_blank', 'noopener,noreferrer');
-          }
+          if (state.currentDoc) window.open(state.currentDoc.url, '_blank', 'noopener,noreferrer');
         });
-
         elements.downloadCurrentPdf.addEventListener('click', () => {
-          if (state.currentDoc) {
-            handleDocDownload(state.currentDoc.url, state.currentDoc.filename);
-          }
+          if (state.currentDoc) handleDocDownload(state.currentDoc.url, state.currentDoc.filename);
         });
-
         elements.pdfFrame.addEventListener('error', () => {
           elements.viewerError.textContent = 'This PDF could not be displayed inline. Open it in a new tab or download it instead.';
           elements.viewerError.style.display = 'block';
@@ -1489,17 +1033,13 @@
       }
 
       document.addEventListener('DOMContentLoaded', () => {
+        if (window.pdfjsLib) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
         attachEventHandlers();
-        const initialRoute = isAppRoute(window.history.state)
-          ? window.history.state
-          : createRoute('home');
+        const initialRoute = isAppRoute(window.history.state) ? window.history.state : createRoute('home');
         window.history.replaceState(initialRoute, '');
         renderRoute(initialRoute);
-        showStatus('Loading the PDF text index...', '');
-        ensurePdfIndexReady().catch(() => {
-          showStatus('The PDF text index could not be loaded. Fallback search remains available.', 'error');
-        });
-      });
-    </script>
+      });    </script>
   </body>
 </html>
