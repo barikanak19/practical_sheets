@@ -347,6 +347,7 @@
         border-radius: 18px;
         background: #f2f4f8;
         overflow: hidden;
+        position: relative;
       }
 
       iframe {
@@ -354,6 +355,73 @@
         height: 70vh;
         border: none;
         background: #fff;
+      }
+
+      #pdfCanvas {
+        display: block;
+        margin: 0 auto;
+        background: #fff;
+        max-width: 100%;
+      }
+
+      #pdfViewerContainer {
+        width: 100%;
+        height: 70vh;
+        overflow: auto;
+        background: #525252;
+        display: none;
+        text-align: center;
+        padding: 20px;
+      }
+
+      #pdfViewerContainer.active {
+        display: block;
+      }
+
+      .pdf-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+
+      .pdf-controls button {
+        min-width: 80px;
+      }
+
+      .page-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .page-info input {
+        width: 60px;
+        text-align: center;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px;
+      }
+
+      #pdfLoadingIndicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: var(--panel);
+        padding: 20px 30px;
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        display: none;
+        z-index: 100;
+      }
+
+      #pdfLoadingIndicator.active {
+        display: block;
       }
 
       .viewer-topbar {
@@ -406,9 +474,23 @@
         }
 
         .viewer-shell,
-        iframe {
+        #pdfViewerContainer {
           min-height: 58vh;
           height: 58vh;
+        }
+
+        .pdf-controls {
+          font-size: 0.9rem;
+        }
+
+        .pdf-controls button {
+          min-width: auto;
+          padding: 0 10px;
+          font-size: 0.85rem;
+        }
+
+        .page-info input {
+          width: 50px;
         }
       }
     </style>
@@ -463,7 +545,25 @@
           </div>
           <div id="viewerError" class="status error" role="alert" style="display:none;"></div>
           <div class="viewer-shell">
-            <iframe id="pdfFrame" title="PDF Viewer" allowfullscreen></iframe>
+            <div class="pdf-controls">
+              <button id="prevPage" class="secondary-btn" type="button">Previous</button>
+              <div class="page-info">
+                <span>Page</span>
+                <input id="pageNum" type="number" min="1" value="1" />
+                <span>of <span id="pageCount">--</span></span>
+              </div>
+              <button id="nextPage" class="secondary-btn" type="button">Next</button>
+              <button id="zoomOut" class="ghost-btn" type="button">Zoom Out</button>
+              <button id="zoomIn" class="ghost-btn" type="button">Zoom In</button>
+              <button id="zoomReset" class="ghost-btn" type="button">Reset</button>
+            </div>
+            <div id="pdfLoadingIndicator">
+              <p>Loading PDF...</p>
+            </div>
+            <div id="pdfViewerContainer">
+              <canvas id="pdfCanvas"></canvas>
+            </div>
+            <iframe id="pdfFrame" title="PDF Viewer Fallback" allowfullscreen style="display:none;"></iframe>
           </div>
         </section>
       </main>
@@ -496,7 +596,15 @@
         pdfIndexValidated: false,
         pdfIndexLoadingPromise: null,
         pdfIndexRefreshPromise: null,
-        textSearchTimer: null
+        textSearchTimer: null,
+        pdfViewerState: {
+          pdfDocument: null,
+          currentPage: 1,
+          totalPages: 0,
+          scale: 1.5,
+          rendering: false,
+          pendingPage: null
+        }
       };
 
       const elements = {
@@ -514,7 +622,17 @@
         viewerError: document.getElementById('viewerError'),
         openInNewTab: document.getElementById('openInNewTab'),
         downloadCurrentPdf: document.getElementById('downloadCurrentPdf'),
-        viewerBack: document.getElementById('viewerBack')
+        viewerBack: document.getElementById('viewerBack'),
+        pdfCanvas: document.getElementById('pdfCanvas'),
+        pdfViewerContainer: document.getElementById('pdfViewerContainer'),
+        pdfLoadingIndicator: document.getElementById('pdfLoadingIndicator'),
+        prevPage: document.getElementById('prevPage'),
+        nextPage: document.getElementById('nextPage'),
+        pageNum: document.getElementById('pageNum'),
+        pageCount: document.getElementById('pageCount'),
+        zoomIn: document.getElementById('zoomIn'),
+        zoomOut: document.getElementById('zoomOut'),
+        zoomReset: document.getElementById('zoomReset')
       };
 
       function escapeHtml(value) {
@@ -644,18 +762,104 @@
         `).join('');
       }
 
-      function openDocument(docUrl, pageNumber = 1) {
+      async function renderPdfPage(pageNumber) {
+        if (state.pdfViewerState.rendering) {
+          state.pdfViewerState.pendingPage = pageNumber;
+          return;
+        }
+
+        state.pdfViewerState.rendering = true;
+        const pdfDoc = state.pdfViewerState.pdfDocument;
+
+        try {
+          if (pageNumber < 1) pageNumber = 1;
+          if (pageNumber > pdfDoc.numPages) pageNumber = pdfDoc.numPages;
+
+          state.pdfViewerState.currentPage = pageNumber;
+          elements.pageNum.value = pageNumber;
+          elements.pageCount.textContent = pdfDoc.numPages;
+
+          const page = await pdfDoc.getPage(pageNumber);
+          const viewport = page.getViewport({ scale: state.pdfViewerState.scale });
+
+          const canvas = elements.pdfCanvas;
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          const renderContext = {
+            canvasContext: context,
+            viewport: viewport
+          };
+
+          await page.render(renderContext).promise;
+          page.cleanup();
+
+          elements.prevPage.disabled = pageNumber <= 1;
+          elements.nextPage.disabled = pageNumber >= pdfDoc.numPages;
+
+        } catch (error) {
+          console.error('PDF page rendering failed:', error);
+          elements.viewerError.textContent = `Failed to render page ${pageNumber}. ${error.message}`;
+          elements.viewerError.style.display = 'block';
+        } finally {
+          state.pdfViewerState.rendering = false;
+          
+          if (state.pdfViewerState.pendingPage !== null && state.pdfViewerState.pendingPage !== pageNumber) {
+            const pending = state.pdfViewerState.pendingPage;
+            state.pdfViewerState.pendingPage = null;
+            renderPdfPage(pending);
+          }
+        }
+      }
+
+      async function openDocument(docUrl, pageNumber = 1) {
         const doc = allDocs.find((item) => item.url === docUrl);
         if (!doc) {
           showStatus('The selected PDF could not be found.', 'error');
           return;
         }
+
         state.currentDoc = doc;
         elements.viewerTitle.textContent = doc.filename;
-        elements.pdfFrame.src = pageNumber > 1 ? `${doc.url}#page=${pageNumber}` : doc.url;
-        elements.pdfFrame.style.display = 'block';
         elements.viewerError.style.display = 'none';
+        elements.pdfLoadingIndicator.classList.add('active');
+        elements.pdfViewerContainer.classList.remove('active');
+
         showView('viewer');
+
+        if (!window.pdfjsLib) {
+          elements.viewerError.textContent = 'PDF.js library failed to load. Please refresh the page.';
+          elements.viewerError.style.display = 'block';
+          elements.pdfLoadingIndicator.classList.remove('active');
+          return;
+        }
+
+        try {
+          if (state.pdfViewerState.pdfDocument) {
+            await state.pdfViewerState.pdfDocument.destroy();
+            state.pdfViewerState.pdfDocument = null;
+          }
+
+          const loadingTask = window.pdfjsLib.getDocument(doc.url);
+          const pdfDoc = await loadingTask.promise;
+
+          state.pdfViewerState.pdfDocument = pdfDoc;
+          state.pdfViewerState.totalPages = pdfDoc.numPages;
+          state.pdfViewerState.currentPage = 1;
+          
+          elements.pdfLoadingIndicator.classList.remove('active');
+          elements.pdfViewerContainer.classList.add('active');
+
+          await renderPdfPage(pageNumber);
+
+        } catch (error) {
+          console.error('PDF loading failed:', error);
+          elements.viewerError.textContent = `Failed to load PDF: ${error.message}. Try downloading or opening in a new tab.`;
+          elements.viewerError.style.display = 'block';
+          elements.pdfLoadingIndicator.classList.remove('active');
+          elements.pdfViewerContainer.classList.remove('active');
+        }
       }
 
       function downloadFile(url, fileName) {
@@ -1113,9 +1317,55 @@
         elements.openInNewTab.addEventListener('click', () => {
           if (state.currentDoc) window.open(state.currentDoc.url, '_blank', 'noopener,noreferrer');
         });
+        
         elements.downloadCurrentPdf.addEventListener('click', () => {
           if (state.currentDoc) handleDocDownload(state.currentDoc.url, state.currentDoc.filename);
         });
+
+        elements.prevPage.addEventListener('click', () => {
+          if (state.pdfViewerState.currentPage > 1) {
+            renderPdfPage(state.pdfViewerState.currentPage - 1);
+          }
+        });
+
+        elements.nextPage.addEventListener('click', () => {
+          if (state.pdfViewerState.currentPage < state.pdfViewerState.totalPages) {
+            renderPdfPage(state.pdfViewerState.currentPage + 1);
+          }
+        });
+
+        elements.pageNum.addEventListener('change', (event) => {
+          const pageNumber = parseInt(event.target.value, 10);
+          if (!isNaN(pageNumber)) {
+            renderPdfPage(pageNumber);
+          }
+        });
+
+        elements.pageNum.addEventListener('keypress', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            const pageNumber = parseInt(event.target.value, 10);
+            if (!isNaN(pageNumber)) {
+              renderPdfPage(pageNumber);
+            }
+          }
+        });
+
+        elements.zoomIn.addEventListener('click', () => {
+          state.pdfViewerState.scale = Math.min(state.pdfViewerState.scale + 0.25, 3.0);
+          renderPdfPage(state.pdfViewerState.currentPage);
+        });
+
+        elements.zoomOut.addEventListener('click', () => {
+          state.pdfViewerState.scale = Math.max(state.pdfViewerState.scale - 0.25, 0.5);
+          renderPdfPage(state.pdfViewerState.currentPage);
+        });
+
+        elements.zoomReset.addEventListener('click', () => {
+          state.pdfViewerState.scale = 1.5;
+          renderPdfPage(state.pdfViewerState.currentPage);
+        });
+
         elements.pdfFrame.addEventListener('error', () => {
           elements.viewerError.textContent = 'This PDF could not be displayed inline. Open it in a new tab or download it instead.';
           elements.viewerError.style.display = 'block';
